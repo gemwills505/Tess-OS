@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { getBrain, updateBrain, resetBrain, getActiveClientId, TESS_ID } from '../services/brain';
 import { BrainData, LocationData, Relationship, VoiceExample, BrandFont, LocationId, Product } from '../types';
@@ -255,8 +254,8 @@ const BrainManager: React.FC = () => {
               const loc = newLocations[key];
               if (loc.imageUrl) continue;
               const masterPrompt = `MASTER SHOT: ${loc.name}. ${loc.visualData}. ${loc.defaultContext}. Style: High-end architectural photography, natural light, cinematic, realistic textures. NO TEXT OVERLAYS.`;
-              // USE 16:9 for locations
-              const masterImage = await generateGenAiImage(masterPrompt, false, true, null, '16:9');
+              // USE 16:9 for locations AND PASS BRAIN
+              const masterImage = await generateGenAiImage(masterPrompt, false, true, null, '16:9', brain);
               if (masterImage) {
                   newLocations[key] = { ...loc, imageUrl: masterImage, imageUrls: [masterImage] };
                   setBrain(prev => prev ? ({ ...prev, locations: { ...newLocations } }) : null);
@@ -272,8 +271,8 @@ const BrainManager: React.FC = () => {
       const loc = brain.locations[locId];
       try {
           const masterPrompt = `MASTER SHOT: ${loc.name}. ${loc.visualData}. ${loc.defaultContext}. Style: High-end architectural photography, natural light, cinematic, realistic textures. NO TEXT OVERLAYS.`;
-          // USE 16:9 for locations
-          const masterImage = await generateGenAiImage(masterPrompt, false, true, null, '16:9');
+          // USE 16:9 for locations AND PASS BRAIN
+          const masterImage = await generateGenAiImage(masterPrompt, false, true, null, '16:9', brain);
           if (masterImage) {
               const newLocations = { ...brain.locations };
               newLocations[locId] = { ...loc, imageUrl: masterImage, imageUrls: [masterImage] };

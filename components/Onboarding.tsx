@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { getBrain, updateBrain, saveAppSettings } from '../services/brain';
 import { performInitialResearch, generateOnboardingCandidates, generateStarterEnvironments, generateDeepPersona, generatePersonaGallery } from '../services/geminiService';
@@ -59,6 +57,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [hiringStep, setHiringStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [researchProgress, setResearchProgress] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
   
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -118,6 +117,26 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           setResearchProgress(100);
       }
   }, [isAnalyzing]);
+
+  // Generation Progress Simulation
+  useEffect(() => {
+      if (isGenerating) {
+          setGenerationProgress(0);
+          const interval = setInterval(() => {
+              setGenerationProgress(prev => {
+                  if (prev >= 99) return prev;
+                  // Logarithmic-ish approach: moves fast then slows down
+                  const remaining = 99 - prev;
+                  // Roughly 30-40s total time
+                  const inc = Math.max(0.1, remaining * 0.05);
+                  return prev + inc;
+              });
+          }, 200); 
+          return () => clearInterval(interval);
+      } else {
+          setGenerationProgress(100);
+      }
+  }, [isGenerating]);
 
   useEffect(() => {
       const storedKey = localStorage.getItem('tess_gemini_key');
@@ -212,19 +231,18 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   };
 
   const handlePass = () => {
-      if (cardIndex < candidates.length - 1) {
+      if (cardIndex < candidates.length) {
           setCardIndex(prev => prev + 1);
-      } else {
-          // Stay on last card if wanted, or bounce
       }
   };
   
   const handleLoadMore = async () => {
       if (!researchData) return;
       setIsGenerating(true);
+      setCardIndex(0); // Reset stack when loading more
       try {
           const result = await generateOnboardingCandidates(researchData, selectedArchetype);
-          setCandidates(prev => [...prev, ...result.candidates]);
+          setCandidates(result.candidates); // Replace with new batch
       } catch (e) {
           console.error("Failed to load more");
       } finally {
@@ -454,29 +472,41 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       {/* OPTION 1: EMPLOYEE */}
                       <button 
                         onClick={() => handleArchetypeSelect('employee')}
-                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-purple rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden flex flex-col items-center justify-center text-center"
+                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-purple rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden"
                       >
-                          <div className="text-6xl mb-6 bg-white w-24 h-24 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">💼</div>
-                          <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-purple transition-colors">The Insider</h3>
-                          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-full mb-4">Employee</span>
-                          <p className="text-gray-600 leading-relaxed font-medium">
-                              "I work here. I know the team. I share behind-the-scenes secrets and expert tips."
-                          </p>
-                          <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"We"</span></div>
+                          <div className="w-full flex justify-center mb-6">
+                              <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                  <span className="text-6xl">💼</span>
+                              </div>
+                          </div>
+                          <div className="text-center">
+                              <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-purple transition-colors">The Insider</h3>
+                              <span className="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-full mb-4">Employee</span>
+                              <p className="text-gray-600 leading-relaxed font-medium">
+                                  "I work here. I know the team. I share behind-the-scenes secrets and expert tips."
+                              </p>
+                              <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"We"</span></div>
+                          </div>
                       </button>
 
                       {/* OPTION 2: SUPER FAN */}
                       <button 
                         onClick={() => handleArchetypeSelect('megafan')}
-                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-pink rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden flex flex-col items-center justify-center text-center"
+                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-pink rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden"
                       >
-                          <div className="text-6xl mb-6 bg-white w-24 h-24 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">🤩</div>
-                          <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-pink transition-colors">The Super Fan</h3>
-                          <span className="inline-block px-3 py-1 bg-pink-100 text-pink-600 text-xs font-bold rounded-full mb-4">UGC Creator / Ambassador</span>
-                          <p className="text-gray-600 leading-relaxed font-medium">
-                              "I buy everything. I'm obsessed with the brand. I share my unboxings, reviews, and lifestyle."
-                          </p>
-                          <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"I"</span></div>
+                          <div className="w-full flex justify-center mb-6">
+                              <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                  <span className="text-6xl">🤩</span>
+                              </div>
+                          </div>
+                          <div className="text-center">
+                              <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-pink transition-colors">The Super Fan</h3>
+                              <span className="inline-block px-3 py-1 bg-pink-100 text-pink-600 text-xs font-bold rounded-full mb-4">UGC Creator / Ambassador</span>
+                              <p className="text-gray-600 leading-relaxed font-medium">
+                                  "I buy everything. I'm obsessed with the brand. I share my unboxings, reviews, and lifestyle."
+                              </p>
+                              <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"I"</span></div>
+                          </div>
                       </button>
                   </div>
               </div>
@@ -494,7 +524,20 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   </div>
                   <h3 className="text-2xl font-bold text-brand-dark mb-2">Drafting {selectedArchetype === 'employee' ? 'Insider' : 'Super Fan'} Candidates...</h3>
                   <p className="text-gray-500 max-w-sm mx-auto">Analyzing brand vibes and creating matching personas.</p>
-                  <div className="mt-8 w-64 h-2 bg-gray-100 rounded-full mx-auto overflow-hidden"><div className="h-full bg-brand-dark animate-loading"></div></div>
+                  
+                  {/* PERCENTAGE LOADING BAR */}
+                  <div className="mt-8 w-64 mx-auto">
+                      <div className="flex justify-between text-xs font-bold text-brand-dark mb-1">
+                          <span>Progress</span>
+                          <span>{Math.round(generationProgress)}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                              className="h-full bg-brand-dark transition-all duration-200 ease-out" 
+                              style={{ width: `${generationProgress}%` }}
+                          ></div>
+                      </div>
+                  </div>
               </div>
           </div>
       );
@@ -552,9 +595,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       <div className="mb-6">
                           <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.2em] border border-brand-purple/20 px-2 py-1 rounded mb-3 inline-block">Candidate Profile</span>
                           <h2 className="text-5xl font-black text-brand-dark tracking-tight mb-2">{candidate.name}</h2>
-                          <div className="flex gap-3 items-center mb-4">
+                          <div className="flex gap-3 items-center mb-4 flex-wrap">
                               <p className="text-xl font-medium text-gray-500">"{candidate.tagline}"</p>
-                              {candidate.pronouns && <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">{candidate.pronouns}</span>}
+                              {candidate.pronouns && <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-bold">{candidate.pronouns}</span>}
+                              {candidate.birthday && <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-bold">🎂 {candidate.birthday}</span>}
                           </div>
                           
                           {/* LIFE SNAPSHOT ROW */}
@@ -700,10 +744,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                           };
                       } else if (isUpcoming) {
                           const offset = index - cardIndex;
+                          // STACK EFFECT: Keep full opacity, scale down slightly, push down slightly
                           style = {
                               zIndex: 30 - offset,
-                              transform: `scale(${1 - offset * 0.05}) translateY(${offset * 20}px)`,
-                              opacity: 1 - offset * 0.2,
+                              transform: `scale(${1 - offset * 0.05}) translateY(${offset * 12}px)`,
+                              opacity: 1, // NO TRANSPARENCY
+                              backgroundColor: 'white', // Ensure opaque background
                               pointerEvents: 'none'
                           };
                       }
@@ -763,15 +809,16 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   
                   {/* Empty State (End of Stack) */}
                   {cardIndex >= candidates.length && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[32px] border border-dashed border-gray-300 text-gray-400">
-                          <div className="text-4xl mb-4">↺</div>
-                          <p className="font-bold mb-6">End of candidates</p>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[32px] border border-dashed border-gray-300 text-gray-400 z-0">
+                          <div className="text-6xl mb-4">💔</div>
+                          <p className="font-bold mb-2 text-brand-dark text-lg">No more candidates nearby.</p>
+                          <p className="text-xs text-gray-400 mb-8 uppercase tracking-widest">Widen your search parameters?</p>
                           <div className="flex gap-2">
                               <button onClick={() => setCardIndex(0)} className="bg-white border border-gray-200 text-gray-600 px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-50 transition-colors">
                                   Start Over
                               </button>
                               <button onClick={handleLoadMore} className="bg-brand-dark text-white px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-800 transition-colors">
-                                  {isGenerating ? 'Generating...' : 'Search Further'}
+                                  {isGenerating ? 'Scanning...' : 'Search Further'}
                               </button>
                           </div>
                       </div>
@@ -780,17 +827,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
               {/* Controls - Move below card stack using mt-8 */}
               {cardIndex < candidates.length && (
-                  <div className="h-24 flex items-center justify-center gap-10 mt-8 pb-4 relative z-50">
+                  <div className="h-24 flex items-center justify-center gap-10 mt-8 pb-4 relative z-[200]">
                       <button 
                           onClick={handlePass}
-                          className="w-16 h-16 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-gray-100 text-red-500 flex items-center justify-center hover:scale-110 hover:bg-red-50 transition-all active:scale-95 cursor-pointer z-50"
+                          className="w-16 h-16 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-gray-100 text-red-500 flex items-center justify-center hover:scale-110 hover:bg-red-50 transition-all active:scale-95 cursor-pointer"
                           title="Pass"
                       >
                           <CloseIcon className="w-8 h-8" />
                       </button>
                       <button 
                           onClick={() => handleSelectCandidate(candidates[cardIndex].id)}
-                          className="w-16 h-16 rounded-full bg-brand-dark shadow-[0_8px_25px_rgba(17,24,39,0.4)] border border-brand-dark text-green-400 flex items-center justify-center hover:scale-110 hover:shadow-2xl transition-all active:scale-95 cursor-pointer z-50"
+                          className="w-16 h-16 rounded-full bg-brand-dark shadow-[0_8px_25px_rgba(17,24,39,0.4)] border border-brand-dark text-green-400 flex items-center justify-center hover:scale-110 hover:shadow-2xl transition-all active:scale-95 cursor-pointer"
                           title="Select Operator"
                       >
                           <CheckIcon className="w-8 h-8" />
