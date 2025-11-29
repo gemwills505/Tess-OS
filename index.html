@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tess OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,700;1,700&family=Courier+Prime:wght@400;700&family=Montserrat:wght@400;700;900&family=Permanent+Marker&family=Anton&family=Dancing+Script:wght@700&family=Abril+Fatface&family=Bebas+Neue&family=Oswald:wght@500;700&family=Poppins:wght@400;700;900&family=Lobster&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+              socialModern: ['"Inter"', 'sans-serif'],
+              socialClassic: ['"Playfair Display"', 'serif'],
+              socialType: ['"Courier Prime"', 'monospace'],
+              socialBold: ['"Montserrat"', 'sans-serif'],
+              socialHand: ['"Permanent Marker"', 'cursive'],
+              socialStrong: ['"Anton"', 'sans-serif'],
+              socialNeon: ['"Dancing Script"', 'cursive'],
+              socialSerifBold: ['"Abril Fatface"', 'cursive'],
+            },
+            colors: {
+              glass: {
+                border: 'rgba(255, 255, 255, 0.3)',
+                surface: 'rgba(255, 255, 255, 0.65)',
+              },
+              brand: {
+                dark: '#111827',
+                muted: '#6b7280',
+                purple: '#A855F7',
+                pink: '#EC4899',
+                cyan: '#19edfb',
+              }
+            },
+            keyframes: {
+              loading: {
+                '0%': { transform: 'translateX(-100%)' },
+                '50%': { transform: 'translateX(100%)' },
+                '100%': { transform: 'translateX(-100%)' },
+              }
+            },
+            animation: {
+              'loading': 'loading 2s infinite linear',
+              'bounce-slow': 'bounce 3s infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        :root {
+            --bg-light: #f9fafb; 
+            --text-dark: #111827; 
+            --text-light: #6b7280;
+            --c-purple: #A855F7;
+            --c-pink: #EC4899;
+            --c-cyan: #19edfb;
+            --border-light: rgba(229, 231, 235, 1);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-light);
+            background-image: 
+                radial-gradient(circle at 15% 15%, hsla(180, 80%, 85%, 0.3), transparent 40%),
+                radial-gradient(circle at 85% 75%, hsla(280, 80%, 90%, 0.4), transparent 50%);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Globally Hide Scrollbars */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        * {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        
+        .dot-grid {
+            background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0);
+            background-size: 1.5rem 1.5rem;
+        }
+        
+        .glass-effect {
+            background-color: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+        }
+
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* --- FORM STYLES --- */
+        .input-std {
+            width: 100%;
+            background-color: #ffffff !important;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #000000 !important;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .input-std:focus {
+            background-color: #ffffff !important;
+            border-color: #A855F7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+        }
+        
+        .input-area {
+            width: 100%;
+            background-color: #ffffff !important;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            color: #000000 !important;
+            outline: none;
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        .input-area:focus {
+            background-color: #ffffff !important;
+            border-color: #A855F7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+        }
+
+        .label-sm {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
