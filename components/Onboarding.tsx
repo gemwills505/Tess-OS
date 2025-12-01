@@ -15,18 +15,14 @@ interface OnboardingProps {
 }
 
 const LOADING_STEPS = [
-    "Connecting to the grid...",
-    "Reading homepage context...",
-    "Analyzing service friction...",
-    "Scanning reviews for pain points...",
-    "Extracting gallery evidence...",
-    "Checking pricing tiers...",
-    "Testing booking flow...",
-    "Indexing FAQs...",
-    "Observing visual environment...",
-    "Studying staff posture...",
-    "Profiling customer demographics...",
-    "Compiling audience intelligence..."
+    "Ingesting Brand Identity: Extracting core values and mission...",
+    "Visual Semiotics Scan: Decoding aesthetic patterns for consistency...",
+    "Linguistic Analysis: Calibrating Tone of Voice for maximum resonance...",
+    "Competitor Cross-Reference: Identifying market gaps and opportunities...",
+    "Audience Psychographics: Mapping emotional triggers and desires...",
+    "Friction Point Detection: Locating barriers to customer conversion...",
+    "Content Strategy Synthesis: Formulating high-impact pillars...",
+    "Persona Calibration: Aligning the AI operator with brand culture..."
 ];
 
 const HIRING_STEPS = [
@@ -86,9 +82,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   // Cycle through loading messages
   useEffect(() => {
       if (!isAnalyzing && !isGenerating) return;
+      // Slowed down slightly to give time to read the "Talking Points"
       const interval = setInterval(() => {
           setLoadingStep(prev => (prev + 1) % LOADING_STEPS.length);
-      }, 2500);
+      }, 3000);
       return () => clearInterval(interval);
   }, [isAnalyzing, isGenerating]);
   
@@ -437,7 +434,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Business URL</label>
                   <div className="flex gap-3">
                       <input autoFocus type="text" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleStartResearch()} placeholder="e.g. www.mylocalsalon.com" className="flex-1 p-4 rounded-xl bg-white border border-gray-200 text-lg outline-none focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/10 transition-all text-brand-dark" />
-                      <button onClick={handleStartResearch} disabled={!url.trim()} className="bg-brand-dark text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 shadow-lg">Start Scan</button>
+                      <button onClick={handleStartResearch} disabled={!url.trim()} className="bg-brand-dark text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 shadow-lg">Activate Agent</button>
                   </div>
                   {error && <div className="mt-4 p-3 bg-red-50 text-red-500 text-xs rounded-lg font-bold flex items-center gap-2"><span>⚠️</span> {error}</div>}
               </div>
@@ -533,7 +530,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div 
-                              className="h-full bg-brand-dark transition-all duration-200 ease-out" 
+                              className="h-full bg-brand-purple transition-all duration-200 ease-out" 
                               style={{ width: `${generationProgress}%` }}
                           ></div>
                       </div>

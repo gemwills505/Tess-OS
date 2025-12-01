@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { getBrain, getAppSettings } from "./brain";
 import { BrainData, TessDayPlan, CampaignStrategy, WeeklyPostPlan, FeedPost, StoryItem, LocationData, TrendCard, VoiceExample, BrandContext, AvatarCandidate, BusinessInfo, AgentTool, BrainUpdateProposal, CampaignPackage, PersonaCV, SprintDuration, FacebookProfile, VisionAnalysisResult, Product, VideoTranscript, VoiceMode } from "../types";
@@ -57,6 +58,7 @@ export const constructImageGenPrompt = (visualPrompt: string, engine: string, is
         const safeBio = brain.identity?.bio || "A social media manager.";
         
         if (isEnvironment) {
+             // STRICT ENVIRONMENT RULES
              const shouldUse360Format = isExplicit360 || (known360Location && isEnvironment);
              return `
                 ROLE: Professional Architectural Photographer & Interior Stylist.
@@ -64,7 +66,14 @@ export const constructImageGenPrompt = (visualPrompt: string, engine: string, is
                 STYLE: "Architectural Digest" meets "Real Life".
                 
                 BIO CONTEXT: "${safeBio}"
-                CRITICAL VISUAL RULES: NO SCREENS FLOATING. STRAIGHT VERTICAL LINES. ORGANIZED CHAOS.
+                
+                CRITICAL VISUAL RULES: 
+                - **EMPTY ROOM. NO PEOPLE. NO HUMANS. NO PETS.**
+                - NO SCREENS FLOATING. STRAIGHT VERTICAL LINES. 
+                - Clean, minimalist, high-end aesthetic. Lived-in but tidy.
+                
+                NEGATIVE PROMPT: People, Person, Man, Woman, Child, Human, Silhouette, Ghost, Shadow of person, Messy, Cluttered, Dirty, Garbage.
+                
                 ${shouldUse360Format ? '- FORMAT: 360-degree equirectangular panorama projection.' : ''}
                 SCENE: ${cleanVisualPrompt}
              `;
@@ -76,11 +85,12 @@ export const constructImageGenPrompt = (visualPrompt: string, engine: string, is
                 ? "ACTION: Subject is holding the camera at arm's length (Selfie/Vlog angle). DO NOT show a physical camera device in their hands. They are looking into the lens." 
                 : "";
 
-             return `
-                ROLE: Candid Lifestyle Photographer.
-                TASK: Generate an authentic, real-life photo of a person.
-                STYLE: "Shot on iPhone", clean aesthetic, natural light, high quality.
-                
+             // SMART SUBJECT DEFINITION
+             // If we have a specific persona definition in the brain, use it.
+             const personaDefinition = brain.styleGuide?.persona_definition || "";
+             const hasSpecificPersona = personaDefinition.length > 10;
+
+             let subjectDescription = `
                 SUBJECT:
                 A real human. 20-40 years old. 
                 Style: Smart Casual / Real world aesthetic. Looks put together and well-groomed.
@@ -88,6 +98,24 @@ export const constructImageGenPrompt = (visualPrompt: string, engine: string, is
                 DIVERSITY POLICY: 
                 Unless a specific reference image is provided, prioritize diversity in ethnicity and gender.
                 Avoid generic stock photo looks. Make them look unique.
+             `;
+
+             if (hasSpecificPersona) {
+                 subjectDescription = `
+                SUBJECT DESCRIPTION (STRICT):
+                ${personaDefinition}
+                Name: ${brain.identity.name}
+                
+                INSTRUCTION: Adhere strictly to the physical description above (Hair Color, Hair Style, Ethnicity, Features).
+                 `;
+             }
+
+             return `
+                ROLE: Candid Lifestyle Photographer.
+                TASK: Generate an authentic, real-life photo of a person.
+                STYLE: "Shot on iPhone", clean aesthetic, natural light, high quality.
+                
+                ${subjectDescription}
                 
                 ${hasReference ? "IMPORTANT: Use the provided reference image to determine the subject's facial features, hair color, and ethnicity. Maintain character consistency." : ""}
                 
@@ -172,7 +200,7 @@ export const generateDeepPersona = async (candidate: AvatarCandidate, voiceMode:
 
     const backstoryInstruction = candidate.archetype === 'employee'
         ? "They applied to work here. They have a specific role at the company. Talk about their interview or first day. They are NOT the founder."
-        : "They NEVER applied to work here. They are a SUPER FAN customer who discovered the brand and became obsessed. Their 'Day Job' is totally unrelated to the brand (e.g. they are a nurse, teacher, builder). They post about the brand purely because they love it, not because they are paid or employed.";
+        : "They NEVER applied to work here. They are a SUPER FAN customer who discovered the brand and became obsessed. Their 'Day Job' is totally unrelated to the brand. They post about the brand purely because they love it, not because they are paid.";
 
     const prompt = `
         Create a "Deep Persona Bible" for a social media personality.
@@ -200,7 +228,7 @@ export const generateDeepPersona = async (candidate: AvatarCandidate, voiceMode:
         
         OUTPUT JSON:
         {
-            "backstory": "Detailed paragraph about their history with the brand/job.",
+            "backstory": "Detailed paragraph about their history with the brand/job. If Super Fan, mention how they found the product.",
             "daily_routine": "Detailed run-down of their day (incorporating their Day Job: ${candidate.day_job}). Coffee order, commute, evening ritual.",
             "psychology": {
                 "motivation": "A deep, slightly irrational motivation (e.g. 'To prove their high school teacher wrong').",
@@ -239,7 +267,11 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
     // This ensures consistency even if the main brain hasn't updated yet or if we are just testing
     const tempBrain: any = {
         identity: {
-            bio: `Style: ${deepPersona.visual_attributes.clothing_style}. Hair: ${deepPersona.visual_attributes.hair_style}. Features: ${deepPersona.visual_attributes.facial_features}.`
+            bio: `Style: ${deepPersona.visual_attributes.clothing_style}. Hair: ${deepPersona.visual_attributes.hair_style}. Features: ${deepPersona.visual_attributes.facial_features}.`,
+            name: candidate.name
+        },
+        styleGuide: {
+            persona_definition: `Name: ${candidate.name}. Hair: ${deepPersona.visual_attributes.hair_style}. Style: ${deepPersona.visual_attributes.clothing_style}. Features: ${deepPersona.visual_attributes.facial_features}.`
         },
         locations: {}
     };
@@ -248,35 +280,39 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
         ? `working at ${businessInfo.name}. Wearing ${candidate.uniform}. Context: ${businessInfo.industry}.`
         : `working at their day job as a ${candidate.day_job}. Wearing professional attire for that role. NOT at the brand office.`;
 
+    // IMPORTANT: Inject physical description into EVERY prompt to ensure consistency
+    const physicalDesc = `Subject: ${candidate.name}. ${deepPersona.visual_attributes.hair_style}. ${deepPersona.visual_attributes.facial_features}.`;
+
     const shots = [
         {
             label: "Headshot (Front)",
-            prompt: `Close up portrait of ${candidate.name}, facing camera directly. ${deepPersona.visual_attributes.hair_style}. Neutral but warm expression. Simple background. High key lighting.`
+            prompt: `${physicalDesc} Close up portrait, facing camera directly. Neutral but warm expression. Simple background. High key lighting.`
         },
         {
             label: "Side Profile",
-            prompt: `Side profile shot of ${candidate.name}. Looking to the left. ${deepPersona.visual_attributes.clothing_style}. Natural lighting. Cinematic depth of field.`
+            prompt: `${physicalDesc} Side profile shot. Looking to the left. ${deepPersona.visual_attributes.clothing_style}. Natural lighting. Cinematic depth of field.`
         },
         {
             label: candidate.archetype === 'employee' ? "At Work" : "The Day Job",
-            prompt: `Medium shot of ${candidate.name} ${workContext}. Busy, authentic environment.`
+            prompt: `${physicalDesc} Medium shot of them ${workContext}. Busy, authentic environment.`
         },
         {
             label: "The Hobby",
-            prompt: `Candid shot of ${candidate.name} doing their hobby: ${candidate.hobby || "hobby"}. Focused expression. messy environment. Authentic lighting.`
+            prompt: `${physicalDesc} Candid shot of them doing their hobby: ${candidate.hobby || "hobby"}. Focused expression. messy environment. Authentic lighting.`
         },
         {
             label: "The Pet",
-            prompt: `Selfie of ${candidate.name} with their pet: ${candidate.pet || "pet"}. Happy, chaotic energy. At home. Casual clothes.`
+            prompt: `${physicalDesc} Selfie with their pet: ${candidate.pet || "pet"}. Happy, chaotic energy. At home. Casual clothes.`
         },
         {
             label: "Lifestyle / Routine",
-            prompt: `Candid street photography of ${candidate.name} walking in ${candidate.location || "city"}. Holding a coffee. Wearing sunglasses. Golden hour lighting.`
+            prompt: `${physicalDesc} Candid street photography, walking in ${candidate.location || "city"}. Holding a coffee. Wearing sunglasses. Golden hour lighting.`
         }
     ];
 
     for (const shot of shots) {
         try {
+            await wait(1500); // Rate limit protection
             // Pass tempBrain to ensure the image generator uses THIS character's details
             const img = await generateGenAiImage(shot.prompt, true, false, referenceImage, '3:4', tempBrain);
             if (img) {
@@ -303,10 +339,13 @@ export const generateStarterEnvironments = async (brain: BrainData, onProgress: 
     const prompt = `
         Based on this brand: ${brain.brand?.name || "Brand"} (${brain.brand?.industry || "Service"}).
         And this persona: ${brain.identity.name} (${brain.identity.role}).
-        Vibe: ${brain.styleGuide.persona_definition}
         
         Generate 4 key physical environments (Locations) where content should be filmed.
-        One MUST be a "Home" context. One MUST be a "Work" context.
+        
+        CRITICAL RULES:
+        1. NO HUMANS. NO PEOPLE. The rooms must be EMPTY.
+        2. Style: Clean, minimalist, high-end aesthetic. Lived-in but tidy.
+        3. One MUST be a "Home" context. One MUST be a "Work" context.
         
         OUTPUT JSON:
         [
@@ -330,10 +369,10 @@ export const generateStarterEnvironments = async (brain: BrainData, onProgress: 
         const locsMap: Record<string, LocationData> = {};
         
         await Promise.all(locsArray.map(async (l: any) => {
-             const visualPrompt = `MASTER SHOT: ${l.name}. ${l.visualData}. Style: High-end architectural photography. Vibe: ${brain.styleGuide.persona_definition}`;
+             // Force "EMPTY ROOM" into the visual prompt
+             const visualPrompt = `MASTER SHOT: ${l.name}. ${l.visualData}. Style: Clean, minimalist, high-end aesthetic. EMPTY ROOM. NO PEOPLE.`;
              
-             // CRITICAL FIX: Pass the 'brain' object explicitly so generateGenAiImage uses the NEW persona bio/style
-             // This ensures the location matches the newly created persona, not the old/default one.
+             // CRITICAL FIX: Pass the 'brain' object explicitly
              const img = await generateGenAiImage(visualPrompt, false, true, null, '16:9', brain);
              
              l.imageUrl = img;
@@ -345,6 +384,7 @@ export const generateStarterEnvironments = async (brain: BrainData, onProgress: 
     } catch (e) { return {}; }
 };
 
+// ... (Rest of file kept as is) ...
 export const transcribeVideo = async (base64Data: string, mimeType: string): Promise<VideoTranscript | null> => { const ai = getAiClient(); if (!ai) return null; const prompt = `Transcribe this video. Output JSON: { "title": "Title", "transcript": [{ "timestamp": "0:00", "speaker": "A", "dialogue": "..." }] }`; try { const response = await ai.models.generateContent({ model: "gemini-3-pro-preview", contents: { parts: [{ inlineData: { data: base64Data, mimeType } }, { text: prompt }] }, config: { responseMimeType: "application/json" } }); return JSON.parse(jsonStr(response.text) || "null"); } catch (e) { return { title: "Error", transcript: [] }; } };
 export const selectBestFrame = async (framesBase64: string[]): Promise<number[]> => { return [0]; };
 export const generateHooksFromTranscript = async (t: string) => [{text: "Watch this"}];
@@ -392,7 +432,38 @@ export const generateOnboardingCandidates = async (researchData: string, archety
     const ai = getAiClient();
     if (!ai) throw new Error("API Key missing");
     const archetypeInstruction = archetype === 'employee' ? "ARCHETYPE: INTERNAL EMPLOYEE. 'The Insider'. Perspective: 'We'. STRICTLY NO FOUNDERS. This is a staff member (e.g. Social Manager, Stylist, Barista, Assistant)." : "ARCHETYPE: SUPER FAN / CREATOR. 'The Customer'. Perspective: 'I'. The goal is to share an authentic obsession with the product/service. STRICTLY NO EMPLOYEES. This is a customer.";
-    const synthesisPrompt = `Based on this research: ${researchData} ${archetypeInstruction} Generate a Brand Scan Report with 5 DISTINCT CANDIDATES. CRITICAL RULES: 1. **DIVERSITY**: The 5 candidates MUST be diverse in gender, ethnicity, and style. 2. **FULL NAMES**: Generate a unique, trustworthy **FULL NAME** (First + Last Name). 3. **LIFE SNAPSHOT**: Use real influencer research to assign a realistic Location, specific Pet (with name), and unusual Hobby. 4. **DETAILS**: Generate Pronouns and Birthday (Month/Day). 5. **JOB ROLE**: - If Employee: Give them a specific staff role (e.g. 'Head Stylist', 'Junior Marketer', 'Barista'). NO FOUNDERS. - If Super Fan: Give them a specific unrelated Day Job (e.g. 'Nurse', 'Accountant', 'Student', 'Graphic Designer'). 6. **UNIFORM/STYLE**: - If Employee: Describe their work uniform or dress code (e.g. 'Black branded apron', 'Smart casual suit'). - If Super Fan: Describe their personal style (e.g. 'Vintage boho', 'Streetwear'). 7. **VOICE MODES**: For EACH candidate, generate 3 specific 'Voice Modes' (Calm, Balanced, Chaotic). OUTPUT JSON: { "businessInfo": { "name": "...", "industry": "...", "tagline": "...", "what_we_sell": "...", "target_audience": "...", "key_offers": ["..."], "competitors": ["..."], "tone_of_voice": "...", "values": "..." }, "brandContext": { "category": "...", "region": "...", "visualSignals": ["..."], "offerTypes": ["..."], "priceTier": "mid", "competitorRefs": [] }, "personaCV": { "audienceArchetype": "...", "fears": ["..."], "desires": ["..."], "priceSensitivity": "mid", "visualTolerance": { "clutter": "mid", "motion": "high", "faceTime": "mid" }, "callToActionRules": ["..."], "bannedAngles": ["..."] }, "candidates": [ { "id": "c1", "name": "Full Name", "pronouns": "She/Her", "birthday": "April 12", "label": "Creative Descriptor", "tagline": "...", "location": "City, Country", "pet": "Pet Type & Name", "hobby": "Specific Unusual Hobby", "day_job": "Specific Role", "uniform": "Description of clothing", "traits": ["..."], "visualPrompt": "A 28 year old [Ethnicity] [Gender] wearing [uniform]...", "skills": ["..."], "mission": "Default mission statement...", "chaosLevel": 40, "sarcasmLevel": 30, "archetype": "${archetype}", "voiceModes": [ { "title": "Calm", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 10, "sarcasmLevel": 10 }, { "title": "Balanced", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 50, "sarcasmLevel": 40 }, { "title": "Chaotic", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 90, "sarcasmLevel": 80 } ] } ] }`;
+    
+    // BRAND-PERSONA ALIGNMENT LOGIC
+    const brandAlignment = `
+        ANALYZE THE INDUSTRY:
+        - If Brand is Kids/Baby/Parenting -> Persona MUST be a Parent (Mom/Dad). Vibe: Tired, loving, chaotic but cozy.
+        - If Brand is Tech/Crypto -> Persona should be Tech-savvy. Vibe: Modern, sharp.
+        - If Brand is Beauty -> Persona should be polished/aesthetic.
+        
+        MATCH THE PERSONA TO THE BRAND. Do not generate a 'Crypto Bro' for a 'Bedtime Story' brand.
+    `;
+
+    const synthesisPrompt = `
+        Based on this research: ${researchData} 
+        ${archetypeInstruction}
+        ${brandAlignment}
+        
+        Generate a Brand Scan Report with 5 DISTINCT CANDIDATES. 
+        CRITICAL RULES: 
+        1. **DIVERSITY**: The 5 candidates MUST be diverse in gender, ethnicity, and style. 
+        2. **FULL NAMES**: Generate a unique, trustworthy **FULL NAME** (First + Last Name). 
+        3. **LIFE SNAPSHOT**: Use real influencer research to assign a realistic Location, specific Pet (with name), and unusual Hobby. 
+        4. **DETAILS**: Generate Pronouns and Birthday (Month/Day). 
+        5. **JOB ROLE**: 
+           - If Employee: Give them a specific staff role (e.g. 'Head Stylist', 'Junior Marketer', 'Barista'). NO FOUNDERS. 
+           - If Super Fan: Give them a specific unrelated Day Job (e.g. 'Nurse', 'Accountant', 'Student', 'Graphic Designer'). 
+        6. **UNIFORM/STYLE**: 
+           - If Employee: Describe their work uniform or dress code (e.g. 'Black branded apron', 'Smart casual suit'). 
+           - If Super Fan: Describe their personal style (e.g. 'Vintage boho', 'Streetwear'). 
+        7. **VOICE MODES**: For EACH candidate, generate 3 specific 'Voice Modes' (Calm, Balanced, Chaotic). 
+        
+        OUTPUT JSON: { "businessInfo": { "name": "...", "industry": "...", "tagline": "...", "what_we_sell": "...", "target_audience": "...", "key_offers": ["..."], "competitors": ["..."], "tone_of_voice": "...", "values": "..." }, "brandContext": { "category": "...", "region": "...", "visualSignals": ["..."], "offerTypes": ["..."], "priceTier": "mid", "competitorRefs": [] }, "personaCV": { "audienceArchetype": "...", "fears": ["..."], "desires": ["..."], "priceSensitivity": "mid", "visualTolerance": { "clutter": "mid", "motion": "high", "faceTime": "mid" }, "callToActionRules": ["..."], "bannedAngles": ["..."] }, "candidates": [ { "id": "c1", "name": "Full Name", "pronouns": "She/Her", "birthday": "April 12", "label": "Creative Descriptor", "tagline": "...", "location": "City, Country", "pet": "Pet Type & Name", "hobby": "Specific Unusual Hobby", "day_job": "Specific Role", "uniform": "Description of clothing", "traits": ["..."], "visualPrompt": "A 28 year old [Ethnicity] [Gender] wearing [uniform]...", "skills": ["..."], "mission": "Default mission statement...", "chaosLevel": 40, "sarcasmLevel": 30, "archetype": "${archetype}", "voiceModes": [ { "title": "Calm", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 10, "sarcasmLevel": 10 }, { "title": "Balanced", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 50, "sarcasmLevel": 40 }, { "title": "Chaotic", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 90, "sarcasmLevel": 80 } ] } ] }`;
+    
     const synthesisResponse = await ai.models.generateContent({ model: "gemini-3-pro-preview", contents: synthesisPrompt, config: { responseMimeType: "application/json" } });
     const result = JSON.parse(jsonStr(synthesisResponse.text) || "{}");
     if (result.candidates) { await Promise.all(result.candidates.map(async (c: any) => { const enhancedVisualPrompt = `${c.visualPrompt}. Wearing: ${c.uniform}.`; const img = await generateGenAiImage(enhancedVisualPrompt, true, false, null, '3:4'); c.img = img; })); }
