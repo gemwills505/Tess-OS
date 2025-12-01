@@ -15,20 +15,20 @@ export class ErrorBoundary extends Component<Props, State> {
     error: null
   };
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  handleReset = () => {
+  public handleReset = () => {
       this.setState({ hasError: false, error: null });
       window.location.reload();
   };
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 p-10 text-center animate-fade-in">

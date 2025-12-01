@@ -126,6 +126,7 @@ export interface BusinessInfo {
 export interface AppSettings {
     modelTier: 'fast' | 'smart';
     imageEngine: 'nano-fast' | 'nano-pro' | 'seedream';
+    elevenLabsKey?: string; // Added for Voice Changer
 }
 
 export interface BrandContext {
@@ -367,6 +368,7 @@ export interface TessDayPlan {
   script?: string;
   textOverlay: string;
   nanoModel: string;
+  imageUrl?: string; // New field for the generated/selected image
 }
 
 export type SprintDuration = 7 | 14;

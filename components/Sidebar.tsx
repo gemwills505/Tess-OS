@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { getClients, setActiveClient, getActiveClientId, createClient } from '../services/brain';
 import { ClientMeta } from '../types';
@@ -53,6 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'planner', label: 'Feed Planner', icon: '🗓️' },
     { id: 'brain', label: 'Persona Engine', icon: '🧠' },
     { id: 'studio', label: 'Thumbnail Studio', icon: '🎨' },
+    { id: 'voice', label: 'Voice Lab', icon: '🎙️' }, // Added Voice Lab
     { id: 'trends', label: 'Trend Hunter', icon: '📈' },
     { id: 'vision', label: 'Vision Analyst', icon: '👁️' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { getAppSettings, saveAppSettings, getBrain } from '../services/brain';
 import { constructImageGenPrompt } from '../services/geminiService';
@@ -10,6 +11,7 @@ const Settings: React.FC = () => {
   
   // API Keys state
   const [geminiKey, setGeminiKey] = useState('');
+  const [elevenKey, setElevenKey] = useState('');
   const [isKeysSaved, setIsKeysSaved] = useState(false);
   
   // Prompt Lab State
@@ -26,6 +28,8 @@ const Settings: React.FC = () => {
       // Load keys from storage
       const storedGemini = localStorage.getItem('tess_gemini_key');
       if (storedGemini) setGeminiKey(storedGemini);
+      
+      if (settings.elevenLabsKey) setElevenKey(settings.elevenLabsKey);
   }, []);
 
   const handleSaveKeys = () => {
@@ -33,8 +37,12 @@ const Settings: React.FC = () => {
       
       setIsKeysSaved(true);
       
-      // Force settings to Pro defaults
-      saveAppSettings({ modelTier: 'smart', imageEngine: 'nano-pro' });
+      // Force settings to Pro defaults + Save ElevenLabs Key
+      saveAppSettings({ 
+          modelTier: 'smart', 
+          imageEngine: 'nano-pro',
+          elevenLabsKey: elevenKey 
+      });
 
       setTimeout(() => setIsKeysSaved(false), 2000);
   };
@@ -77,7 +85,7 @@ const Settings: React.FC = () => {
              </div>
              <div className="space-y-4">
                  <p className="text-xs text-gray-500 mb-2">
-                    Enter your Google Gemini API Key below.
+                    Enter your API Keys below.
                  </p>
                  
                  {/* Gemini Key */}
@@ -92,6 +100,20 @@ const Settings: React.FC = () => {
                         onChange={(e) => { setGeminiKey(e.target.value); setIsKeysSaved(false); }}
                         placeholder={hasEnvKey ? "Using Environment Variable" : "Paste your Google AI Studio Key..."}
                         className="w-full p-2 bg-gray-50 rounded border border-gray-200 text-sm outline-none focus:border-brand-purple"
+                     />
+                 </div>
+
+                 {/* ElevenLabs Key */}
+                 <div className="p-4 bg-white rounded-xl border border-gray-200">
+                     <div className="flex justify-between items-center mb-2">
+                         <label className="text-xs font-bold text-indigo-600 uppercase">ElevenLabs API Key</label>
+                     </div>
+                     <input 
+                        type="password" 
+                        value={elevenKey}
+                        onChange={(e) => { setElevenKey(e.target.value); setIsKeysSaved(false); }}
+                        placeholder="Paste your ElevenLabs Key for Voice features..."
+                        className="w-full p-2 bg-gray-50 rounded border border-gray-200 text-sm outline-none focus:border-indigo-500"
                      />
                  </div>
              </div>
