@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Modality, Type, GenerateContentResponse } from "@google/genai";
 import { getBrain, getAppSettings } from "./brain";
 import { BrainData, TessDayPlan, CampaignStrategy, WeeklyPostPlan, FeedPost, StoryItem, LocationData, TrendCard, VoiceExample, BrandContext, AvatarCandidate, BusinessInfo, AgentTool, BrainUpdateProposal, CampaignPackage, PersonaCV, SprintDuration, FacebookProfile, VisionAnalysisResult, Product, VideoTranscript, VoiceMode } from "../types";
@@ -615,13 +613,18 @@ export const generateTessWeek = async (brain: BrainData, focus: string, duration
     const ai = getAiClient();
     if (!ai) throw new Error("API Key missing");
 
-    // NEW LOGIC: Use the Defined Strategy Pillars if they exist
-    let strategyContext = "";
-    if (brain.strategy?.active_pillars && brain.strategy.active_pillars.length > 0) {
-        strategyContext = `
-        MANDATORY CONTENT STRATEGY:
-        You MUST strictly rotate through these 5 Pillars. Do NOT invent new formats.
-        ${brain.strategy.active_pillars.map((p, i) => `${i+1}. ${p.title} (${p.format}): ${p.description}. Hook Style: ${p.hookStyle}.`).join('\n')}
+    // 1. MINI-SERIES INJECTION (Only for 14-Day Sprints)
+    let miniSeriesInstruction = "";
+    if (duration === 14) {
+        miniSeriesInstruction = `
+        SPECIAL INSTRUCTION: MINI-SERIES ARC
+        Since this is a 14-day sprint, you MUST include a 3-Part "Mini-Series" narrative.
+        - Day 4: Part 1 (The Problem / Drama begins)
+        - Day 8: Part 2 (The Escalation / Chaos)
+        - Day 12: Part 3 (The Resolution / Learning)
+        
+        Theme for Series: "The Client From Hell" or "The Project That Went Wrong".
+        Mark these posts clearly in the 'hook' as (Part 1/3), etc.
         `;
     }
 
@@ -633,12 +636,14 @@ export const generateTessWeek = async (brain: BrainData, focus: string, duration
         Create a ${duration}-Day Content Sprint.
         Focus: "${focus}".
         
-        ${strategyContext}
+        STRATEGY PILLARS (ROTATE THESE):
+        ${brain.strategy?.active_pillars.map((p, i) => `${i+1}. ${p.title} (${p.format}): ${p.description}`).join('\n')}
+        
+        ${miniSeriesInstruction}
         
         CRITICAL VISUAL RULES:
-        - visualPrompt MUST be detailed for an AI Image Generator.
-        - If "Notes App", describe: "Digital Screenshot of Apple Notes app. Yellow background. Text: [Insert Text]. NO HANDS. NO PHONE."
-        - If "Vlog", describe: "Candid selfie style photo of ${brain.identity.name}...".
+        - For "Notes App", description MUST be: "Digital Screenshot of Apple Notes app. Yellow background. Text: [Insert Text]. NO HANDS. NO PHONE."
+        - For "Aesthetic Filler", description MUST be: "Pret A Manger cup in a [Location]. Cinematic lighting. No faces."
         
         OUTPUT JSON:
         [
@@ -647,21 +652,17 @@ export const generateTessWeek = async (brain: BrainData, focus: string, duration
                 "pillar": "Title of Pillar used",
                 "format": "Static",
                 "hook": "The text on the image/video",
-                "caption": "The caption for the post...",
+                "caption": "The caption...",
                 "visualPrompt": "Detailed AI image prompt...",
-                "thumbnailHeadline": "Short text for UI preview",
+                "thumbnailHeadline": "Short text for UI",
                 "whyItWorks": "Strategy reasoning",
-                "assetType": "generate",
-                "veoPrompt": "Prompt for video generation if needed",
-                "script": "Script if video...",
-                "textOverlay": "Text to go on image",
-                "nanoModel": "nano-pro"
+                "assetType": "generate"
             }
         ]
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: getTextModel(), // DYNAMIC MODEL (Critical for strategy)
+        model: getTextModel(),
         contents: prompt,
         config: { responseMimeType: "application/json" }
     }));
@@ -720,6 +721,12 @@ export const generateOnboardingCandidates = async (researchData: string, archety
         ${brandAlignment}
         
         Generate a Brand Scan Report with 5 DISTINCT CANDIDATES. 
+        
+        CRITICAL: For each candidate, you must define their "Sitcom Elements" that will be used in content pillars:
+        1. **The Prop (Aesthetic Vice):** What is their "Pret Cup"? (e.g., Iced Matcha, Red Bull, Specific Water Bottle).
+        2. **The Mascot (Truth Teller):** Who judges them? (e.g., French Bulldog, Office Plant, The Cleaner).
+        3. **The Villain (Friction):** Who annoys them? (e.g., The Boss, "The 5am Crew", "Clients who are late").
+        
         CRITICAL RULES: 
         1. **DIVERSITY**: The 5 candidates MUST be diverse in gender, ethnicity, and style. 
         2. **FULL NAMES**: Generate a unique, trustworthy **FULL NAME** (First + Last Name). 
@@ -733,7 +740,40 @@ export const generateOnboardingCandidates = async (researchData: string, archety
            - If Super Fan: Describe their personal style (e.g. 'Vintage boho', 'Streetwear'). 
         7. **VOICE MODES**: For EACH candidate, generate 3 specific 'Voice Modes' (Calm, Balanced, Chaotic). 
         
-        OUTPUT JSON: { "businessInfo": { "name": "...", "industry": "...", "tagline": "...", "what_we_sell": "...", "target_audience": "...", "key_offers": ["..."], "competitors": ["..."], "tone_of_voice": "...", "values": "..." }, "brandContext": { "category": "...", "region": "...", "visualSignals": ["..."], "offerTypes": ["..."], "priceTier": "mid", "competitorRefs": [] }, "personaCV": { "audienceArchetype": "...", "fears": ["..."], "desires": ["..."], "priceSensitivity": "mid", "visualTolerance": { "clutter": "mid", "motion": "high", "faceTime": "mid" }, "callToActionRules": ["..."], "bannedAngles": ["..."] }, "candidates": [ { "id": "c1", "name": "Full Name", "pronouns": "She/Her", "birthday": "April 12", "label": "Creative Descriptor", "tagline": "...", "location": "City, Country", "pet": "Pet Type & Name", "hobby": "Specific Unusual Hobby", "day_job": "Specific Role", "uniform": "Description of clothing", "traits": ["..."], "visualPrompt": "A 28 year old [Ethnicity] [Gender] wearing [uniform]...", "skills": ["..."], "mission": "Default mission statement...", "chaosLevel": 40, "sarcasmLevel": 30, "archetype": "${archetype}", "voiceModes": [ { "title": "Calm", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 10, "sarcasmLevel": 10 }, { "title": "Balanced", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 50, "sarcasmLevel": 40 }, { "title": "Chaotic", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 90, "sarcasmLevel": 80 } ] } ] }`;
+        OUTPUT JSON: 
+        { 
+            "businessInfo": { "name": "...", "industry": "...", "tagline": "...", "what_we_sell": "...", "target_audience": "...", "key_offers": ["..."], "competitors": ["..."], "tone_of_voice": "...", "values": "..." }, 
+            "brandContext": { "category": "...", "region": "...", "visualSignals": ["..."], "offerTypes": ["..."], "priceTier": "mid", "competitorRefs": [] }, 
+            "personaCV": { "audienceArchetype": "...", "fears": ["..."], "desires": ["..."], "priceSensitivity": "mid", "visualTolerance": { "clutter": "mid", "motion": "high", "faceTime": "mid" }, "callToActionRules": ["..."], "bannedAngles": ["..."] }, 
+            "candidates": [ 
+                { 
+                    "id": "c1", 
+                    "name": "Full Name", 
+                    "pronouns": "She/Her", 
+                    "birthday": "April 12", 
+                    "label": "Creative Descriptor", 
+                    "tagline": "...", 
+                    "location": "City, Country", 
+                    "pet": "Pet Type & Name", 
+                    "hobby": "Specific Unusual Hobby", 
+                    "day_job": "Specific Role", 
+                    "uniform": "Description of clothing", 
+                    "sitcom_elements": {
+                        "prop": "Iced Oat Latte",
+                        "mascot": "Pablo the Frenchie",
+                        "villain": "The 6am Spin Class"
+                    },
+                    "traits": ["..."], 
+                    "visualPrompt": "A 28 year old [Ethnicity] [Gender] wearing [uniform]...", 
+                    "skills": ["..."], 
+                    "mission": "Default mission statement...", 
+                    "chaosLevel": 40, 
+                    "sarcasmLevel": 30, 
+                    "archetype": "${archetype}", 
+                    "voiceModes": [ { "title": "Calm", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 10, "sarcasmLevel": 10 }, { "title": "Balanced", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 50, "sarcasmLevel": 40 }, { "title": "Chaotic", "mission": "...", "voiceDescription": "...", "samplePost": "...", "chaosLevel": 90, "sarcasmLevel": 80 } ] 
+                } 
+            ] 
+        }`;
     
     const synthesisResponse = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({ model: getTextModel(), contents: synthesisPrompt, config: { responseMimeType: "application/json" } }));
     const result = JSON.parse(jsonStr(synthesisResponse.text) || "{}");

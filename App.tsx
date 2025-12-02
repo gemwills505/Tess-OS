@@ -1,175 +1,75 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import TrendHunter from './components/TrendHunter';
+import FeedPlanner from './components/Dashboard'; 
+import FeedDock from './components/FeedDock';     
+import AgentCommand from './components/AgentCommand';
 import ContentStudio from './components/ContentStudio';
-import VisionAnalyst from './components/VisionAnalyst';
-import FeedPlanner from './components/Dashboard';
 import BrainManager from './components/BrainManager';
-import AgentOmniBar from './components/AgentOmniBar';
+import ProductionLab from './components/ProductionLab';
 import Settings from './components/Settings';
-import ThumbnailMaker from './components/ThumbnailMaker';
-import VoiceChanger from './components/VoiceChanger';
-import SocialStrategy from './components/SocialStrategy'; // NEW
-import Onboarding from './components/Onboarding';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { FeedItem, FeedPost } from './types';
-import { getBrain, initDataLayer, saveFeed, getFeed } from './services/brain';
-
-const NotificationToast: React.FC<{ message: string, onClose: () => void }> = ({ message, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 3000);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    return (
-        <div className="fixed top-6 right-6 z-[100] animate-fade-in">
-            <div className="bg-brand-dark text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-gray-700">
-                <span className="text-xl">✅</span>
-                <span className="font-bold text-sm">{message}</span>
-            </div>
-        </div>
-    );
-};
+import { initDataLayer, saveFeed, getFeed } from './services/brain';
+import { FeedPost } from './types';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('content'); 
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [activeTab, setActiveTab] = useState('planner'); 
+  const [rightPanel, setRightPanel] = useState<'feed' | 'agent'>('agent');
   const [isInit, setIsInit] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
 
-  const loadData = async () => {
-      setIsInit(false);
-      try {
-          await initDataLayer();
-          const brain = getBrain();
-          if (!brain.isConfigured) {
-              setShowOnboarding(true);
-          } else {
-              setShowOnboarding(false);
-          }
-      } catch (e) {
-          console.error("Initialization error:", e);
-      } finally {
-          setIsInit(true);
-      }
-  };
+  useEffect(() => { initDataLayer().then(() => setIsInit(true)); }, []);
 
-  useEffect(() => {
-      loadData();
-      const handleClientChange = () => {
-          loadData();
-          setActiveTab('content');
+  const handleAddToFeed = (newItem: any) => {
+      const current = getFeed();
+      const emptyIdx = current.findIndex(p => p.type === 'empty');
+      const newPosts = [...current];
+      const post: FeedPost = {
+          id: newItem.id || `POST_${Date.now()}`,
+          caption: newItem.caption || '',
+          imageUrl: newItem.imageUrls?.[0] || newItem.imageUrl || null,
+          date: new Date().toISOString(),
+          status: 'draft' as const,
+          type: newItem.type || 'image',
+          notes: newItem.notes || ''
       };
-      window.addEventListener('client_changed', handleClientChange);
-      return () => window.removeEventListener('client_changed', handleClientChange);
-  }, []);
-
-  const handleOnboardingComplete = () => {
-      setShowOnboarding(false);
-      loadData();
-      setActiveTab('brain');
-  };
-  
-  const showToast = (msg: string) => {
-      setNotification(msg);
+      if (emptyIdx !== -1) newPosts[emptyIdx] = post; else newPosts.unshift(post);
+      saveFeed(newPosts);
+      setRightPanel('feed');
   };
 
-  const handleSyncToFeed = (newPosts: any[]) => {
-      const currentPosts = getFeed();
-      let finalFeed = [...currentPosts];
-      const realContent = finalFeed.filter(p => p.type !== 'empty' && (p.imageUrl || p.caption));
-      const combined = [...newPosts, ...realContent].slice(0, 100);
-      
-      while (combined.length < 9) {
-          combined.push({
-            id: `SLOT_PAD_${Date.now()}_${Math.random()}`,
-            imageUrl: null,
-            caption: '',
-            date: new Date().toISOString().split('T')[0],
-            status: 'draft',
-            type: 'empty'
-          });
-      }
-
-      saveFeed(combined);
-      showToast(`Synced ${newPosts.length} posts to Planner`);
-      setActiveTab('planner');
+  const handleSyncToFeed = (posts: any[]) => {
+      const current = getFeed();
+      const actualContent = current.filter(p => p.type !== 'empty');
+      const merged = [...posts, ...actualContent].slice(0, 50);
+      while(merged.length < 9) merged.push({ id: `pad_${Date.now()}_${Math.random()}`, type: 'empty' as const, status: 'draft' as const, date: '', imageUrl: null, caption: '' });
+      saveFeed(merged);
+      setRightPanel('feed');
   };
 
-  const handleAddToFeed = (item: FeedItem) => {
-      const rawFeed = getFeed();
-      let currentPosts = rawFeed.length > 0 ? [...rawFeed] : [];
-      if (currentPosts.length === 0) {
-          for (let i = 0; i < 9; i++) {
-              currentPosts.push({
-                  id: `SLOT_SAFE_${Date.now()}_${i}`,
-                  imageUrl: null,
-                  caption: '',
-                  date: new Date().toISOString().split('T')[0],
-                  status: 'draft',
-                  type: 'empty'
-              });
-          }
-      }
-      const emptyIndex = currentPosts.findIndex((p: any) => p.type === 'empty');
-      const newPost: FeedPost = {
-          id: item.id,
-          imageUrl: item.imageUrls[0] || null,
-          caption: item.caption,
-          date: new Date().toISOString().split('T')[0],
-          status: 'draft',
-          type: item.type,
-          notes: item.hashtags.join(' ')
-      };
-      if (emptyIndex !== -1) {
-          currentPosts[emptyIndex] = newPost;
-      } else {
-          currentPosts.unshift(newPost);
-          if (currentPosts.length > 9) currentPosts.pop(); 
-      }
-      saveFeed(currentPosts);
-      showToast('Added 1 item to Feed');
-      setActiveTab('planner');
-  };
-
-  const renderContent = () => {
+  const renderMainContent = () => {
     switch (activeTab) {
-      case 'planner': return <FeedPlanner />;
-      case 'studio': return <ThumbnailMaker onAddToFeed={handleAddToFeed} />;
-      case 'brain': return <BrainManager />;
-      case 'trends': return <TrendHunter />;
-      case 'content': return <ContentStudio onAddToFeed={handleAddToFeed} />;
-      case 'strategy': return <SocialStrategy />; // NEW
-      case 'vision': return <VisionAnalyst />;
-      case 'voice': return <VoiceChanger />; 
+      case 'planner': return <FeedPlanner />; 
+      case 'content': return <ContentStudio onAddToFeed={handleAddToFeed} />; // Includes TrendHunter
+      case 'create': return <ProductionLab onAddToFeed={handleAddToFeed} />;  // Includes Studio, Voice, Vision
+      case 'brain': return <BrainManager />; // Includes Strategy
       case 'settings': return <Settings />;
       default: return <FeedPlanner />;
     }
   };
 
-  if (!isInit) return <div className="h-screen w-full flex flex-col items-center justify-center bg-white text-brand-dark"><div className="w-12 h-12 border-4 border-brand-purple border-t-transparent rounded-full animate-spin mb-4"></div><h2 className="font-bold text-lg">Initializing...</h2></div>;
-
-  if (showOnboarding) return <Onboarding onComplete={handleOnboardingComplete} />;
+  if (!isInit) return <div className="h-screen w-full flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="flex h-screen w-full font-sans dot-grid overflow-hidden relative bg-[var(--bg-light)]">
-      <div className="shrink-0">
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      </div>
-      <main className="flex-1 relative overflow-auto custom-scrollbar"> 
-        <div className="min-h-full pb-24">
-            <ErrorBoundary>
-                {activeTab !== 'temp' && renderContent()}
-            </ErrorBoundary>
+    <div className="flex h-screen w-full font-sans bg-gray-100 overflow-hidden">
+      <div className="shrink-0 z-30 h-full"><Sidebar activeTab={activeTab} setActiveTab={setActiveTab} /></div>
+      <main className="flex-1 relative overflow-hidden flex flex-col bg-gray-50 shadow-inner">{renderMainContent()}</main>
+      <aside className="shrink-0 z-20 h-full bg-white border-l border-gray-200 flex flex-col shadow-xl w-[350px]">
+        <div className="flex border-b border-gray-200">
+            <button onClick={() => setRightPanel('agent')} className={`flex-1 py-3 text-xs font-bold uppercase ${rightPanel === 'agent' ? 'bg-brand-dark text-white' : 'text-gray-500'}`}>🤖 Agent</button>
+            <button onClick={() => setRightPanel('feed')} className={`flex-1 py-3 text-xs font-bold uppercase ${rightPanel === 'feed' ? 'bg-brand-purple text-white' : 'text-gray-500'}`}>🗓️ Grid</button>
         </div>
-      </main>
-      <AgentOmniBar activeTab={activeTab} onSyncToFeed={handleSyncToFeed} />
-      {notification && <NotificationToast message={notification} onClose={() => setNotification(null)} />}
+        <div className="flex-1 overflow-hidden relative">
+            {rightPanel === 'agent' ? <AgentCommand onSyncToFeed={handleSyncToFeed} /> : <FeedDock />}
+        </div>
+      </aside>
     </div>
   );
 };

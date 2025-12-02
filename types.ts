@@ -91,6 +91,9 @@ export interface BrainStrategy {
     business_hook: string;
     skills: string[];
     experience: string[];
+    // NEW: Learning Arrays
+    winning_patterns?: string[];
+    avoid_patterns?: string[];
 }
 
 export interface BrandFont {
@@ -211,6 +214,11 @@ export interface AvatarCandidate {
   birthday?: string;
   day_job?: string; // e.g. "Head Barista" (Employee) or "Accountant" (Super Fan)
   uniform?: string; // e.g. "Black branded apron" or "Business Casual"
+  sitcom_elements?: {
+      prop: string;
+      mascot: string;
+      villain: string;
+  };
 }
 
 export interface FacebookProfile {
@@ -300,7 +308,9 @@ export interface FeedPost {
   notes?: string;
   type: 'image' | 'video' | 'empty';
   aiPrompt?: string;
-  transcript?: string; 
+  transcript?: string;
+  // NEW: Feedback tracking
+  feedback?: 'winner' | 'flop' | null;
 }
 
 export interface StoryItem {

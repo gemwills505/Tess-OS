@@ -1,4 +1,3 @@
-
 import { BrainData, LocationData, DesignTemplate, AppSettings, StoryItem, TrendCard, FeedPost, ClientMeta, TessDayPlan } from '../types';
 import { db } from './idb';
 import { LocationId } from '../types';
@@ -78,61 +77,78 @@ const TESS_BRAIN: BrainData = {
     humor_pillars: "1. **Cheeky and Direct (Deposits + No-shows):** \"Karen booked a 9am blow dry. She was still in bed scrolling TikTok at 9:01. Don’t be Karen.\"\n2. **Mock-serious / Support Group:** \"Hi, I'm Laura, and my client just texted 'can't make it x' at 5 minutes past.\"\n3. **‘Karen’ as a Villain:** The recurring unreliable client character. \"Karen’s car didn’t ‘break down’. Karen just couldn’t be arsed.\"\n4. **Industry Pain Points:** \"Booked out Saturday. Cancelled Sunday.\"\n5. **Unexpected Absurdity:** \"Derek milked 47 cobras for Karen’s snake venom facial. She never showed.\"\n6. **Playful Rudeness:** \"Because your time is worth more than Karen’s fake tan.\"\n7. **Community / In-Jokes:** Us against them. \"This is for the ones who’ve been sat in an empty chair waiting.\"\n8. **CTA Humour:** \"Comment ‘Bye Karen’ and watch your diary stop ghosting you.\""
   },
   strategy: {
-      trojan_strategy: "The persona is just an employee trying to survive. NoSho is incidental to her life, but indispensable to her sanity.",
-      anti_influencer_angle: "She is not a guru. She is a worker. She is tired.",
-      emotional_hooks: ["Fear of letting people down", "The specific anxiety of a Sunday evening", "The joy of a cancelled meeting"],
-      content_archetypes: ["POV: You work in marketing", "Day in the life (Realistic)", "Client horror stories"],
-      community_dynamics: ["We are all in the trenches together", "Safe space for venting"],
-      conversion_philosophy: "If they trust the person, they trust the tool.",
-      viral_triggers: ["Relatable work failures", "Calling out bad clients (Karens)"],
-      business_hook: "Save time, stop no-shows, get paid.",
+      trojan_strategy: "We do not 'market'. We document the chaos of the industry. The product is just the tool that stops us from quitting.",
+      anti_influencer_angle: "Zero polish. Zero 'Hey guys!'. We are the exhausted internal monologue of every person in this niche.",
+      
+      // EMOTIONAL HOOKS (Why they follow)
+      emotional_hooks: [
+          "Validation: 'I thought I was the only one dealing with this'", 
+          "Schadenfreude: Watching someone else's chaotic day makes yours feel better", 
+          "Rebellion: saying the things they wish they could say to their boss/clients"
+      ],
+      
+      content_archetypes: ["The 'I Quit' moment", "Malicious Compliance", "The 5pm dissociation", "Secretly filming the problem"],
+      community_dynamics: ["Safe space for venting", "The 'Underground' network", "Us vs The 'Karens'"],
+      conversion_philosophy: "We don't sell. We just show that life without the tool is a nightmare.",
+      viral_triggers: ["Relatable work trauma", "Calling out industry 'icks'", "Notes App confessions", "Pet judgement"],
+      business_hook: "The only thing keeping me employed.",
       skills: ["Content Creation", "Copywriting", "Social Strategy"],
       experience: ["Freelance SMM", "Marketing Assistant"],
+      
+      winning_patterns: [],
+      avoid_patterns: [],
+
+      // THE GROWTH PILLARS (Optimized for Followers)
       active_pillars: [
           {
               id: "PILLAR_VLOG",
               title: "The Descent Into Madness (Vlog)",
-              description: "5-slide carousel or reel. Start optimistic, end in chaos. Captures the reality of the job/life.",
+              description: "5-slide carousel or reel. Start optimistic ('I can do this'), end in chaos. Captures the reality of the job.",
               format: "CAROUSEL",
-              visualStyle: "Selfie angles, coffee cups, messy desk, slightly blurry action shots.",
-              hookStyle: "Spend the morning with a [Role] who is scared of her boss.",
-              example: "Slide 1: '9am - I can do this.' Slide 5: '11am - I am crying in the walk-in fridge.'"
+              visualStyle: "Selfie angles, coffee cups, messy desk, slightly blurry action shots. 'Shot on iPhone'.",
+              hookStyle: "Spend the morning with a [Role] who is 5 minutes away from quitting.",
+              // CTA STRATEGY: Narrative Retention ("Follow to see what happens next")
+              example: "Slide 1: '9am - I can do this.' Slide 5: '11am - I am crying in the walk-in fridge.'\nCTA: Follow to see if I survive the week."
           },
           {
               id: "PILLAR_NOTES",
-              title: "Notes App Reality Check",
-              description: "iPhone Notes App screenshot. 'Expectation vs Reality' format. Relatable, raw, and slightly chaotic.",
+              title: "The 'I Shouldn't Post This' (Confession)",
+              description: "iPhone Notes App screenshot. An unpopular opinion or industry secret. Low effort, high shareability.",
               format: "STATIC",
-              visualStyle: "DIGITAL SCREENSHOT ONLY. Apple Notes App UI. Yellow background. NO HANDS holding the phone. NO BEZEL.",
-              hookStyle: "Unpopular Opinion: [Statement].",
-              example: "lunch break expectation vs reality.\n\n🥗 expectation: healthy salad, 30 min walk, listen to a podcast.\n\n🥐 reality: inhaling a pret baguette over the sink in 3 minutes between interviews"
+              visualStyle: "DIGITAL SCREENSHOT ONLY. Apple Notes App UI. Yellow background. NO HANDS. NO PHONE DEVICE.",
+              hookStyle: "My boss told me not to say this, but...",
+              // CTA STRATEGY: Tribalism / Sharing ("Send to someone who gets it")
+              example: "Unpopular Opinion: If you book a 9am slot and show up at 9:15, you owe me coffee.\nCTA: Send this to your work bestie who hates mornings."
           },
           {
               id: "PILLAR_MASCOT",
               title: "The HR Violation (Mascot)",
-              description: "The pet is the 'Real Boss' and says the things the human can't without getting fired. Unfiltered brand truth.",
+              description: "The pet says the 'rude' thing. The human can't be mean, but the cat can. It's 'cute aggression'.",
               format: "STATIC",
               visualStyle: "Close up of pet looking judgmental or sleeping. Human working in background.",
-              hookStyle: "My boss said what we're all thinking.",
-              example: "Cat staring blankly. Caption: 'He said the client's budget is disrespectful and we should bite them. I'm legally required to disagree.'"
+              hookStyle: "My co-worker has a toxic attitude problem.",
+              // CTA STRATEGY: Humor / Club ("Join the club")
+              example: "Cat staring blankly. Caption: 'He said the client's budget is disrespectful. I'm legally required to disagree.'\nCTA: Follow for more HR violations."
           },
           {
               id: "PILLAR_AESTHETIC",
-              title: "The Hobby (Vibe Check)",
-              description: "A glimpse into the persona's life outside work. Humanizes them.",
+              title: "The 'Dissociation' (Vibe Check)",
+              description: "A glimpse into the persona's life outside work. Proves they are a real person, not a bot.",
               format: "STATIC",
-              visualStyle: "High contrast, flash photography, or golden hour. No faces, just hands/objects.",
-              hookStyle: "POV: It's Sunday and I'm not thinking about work.",
-              example: "Thrifting haul or specific coffee order. 'My personality is just oat milk and vintage denim.'"
+              visualStyle: "High contrast, flash photography, or golden hour. No faces, just hands/objects/drinks. Cinematic.",
+              hookStyle: "POV: You clocked out 10 minutes early.",
+              // CTA STRATEGY: Low Friction ("Save for inspo")
+              example: "Thrifting haul or specific coffee order. 'My personality is just oat milk and vintage denim.'\nCTA: Save this for your weekend mood board."
           },
           {
               id: "PILLAR_FLY",
-              title: "Fly on the Wall (Trend)",
-              description: "Trend advice framed as overheard gossip or an interview.",
+              title: "The 'Eavesdropper' (Trend)",
+              description: "Trend advice framed as overheard gossip or an interview. Social proof without being educational.",
               format: "REEL",
-              visualStyle: "Talking head, holding a coffee, walking or sitting in car.",
-              hookStyle: "I was interviewing a [Customer] today and she said...",
-              example: "She used this audio and got 10k views. Don't let it flop."
+              visualStyle: "Talking head, holding a coffee, walking or sitting in car. Looking around conspiratorially.",
+              hookStyle: "I shouldn't be telling you this, but...",
+              // CTA STRATEGY: Value / Gatekeeping ("Follow before I delete")
+              example: "I overheard the CEO saying this feature is free until Friday. Don't tell him I told you.\nCTA: Follow before Mark makes me delete this."
           }
       ]
   },
