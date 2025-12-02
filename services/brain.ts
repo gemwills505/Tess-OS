@@ -1,5 +1,5 @@
 
-import { BrainData, LocationData, DesignTemplate, AppSettings, StoryItem, TrendCard, FeedPost, ClientMeta } from '../types';
+import { BrainData, LocationData, DesignTemplate, AppSettings, StoryItem, TrendCard, FeedPost, ClientMeta, TessDayPlan } from '../types';
 import { db } from './idb';
 import { LocationId } from '../types';
 
@@ -87,7 +87,54 @@ const TESS_BRAIN: BrainData = {
       viral_triggers: ["Relatable work failures", "Calling out bad clients (Karens)"],
       business_hook: "Save time, stop no-shows, get paid.",
       skills: ["Content Creation", "Copywriting", "Social Strategy"],
-      experience: ["Freelance SMM", "Marketing Assistant"]
+      experience: ["Freelance SMM", "Marketing Assistant"],
+      active_pillars: [
+          {
+              id: "PILLAR_VLOG",
+              title: "The Descent Into Madness (Vlog)",
+              description: "5-slide carousel or reel. Start optimistic, end in chaos. Captures the reality of the job/life.",
+              format: "CAROUSEL",
+              visualStyle: "Selfie angles, coffee cups, messy desk, slightly blurry action shots.",
+              hookStyle: "Spend the morning with a [Role] who is scared of her boss.",
+              example: "Slide 1: '9am - I can do this.' Slide 5: '11am - I am crying in the walk-in fridge.'"
+          },
+          {
+              id: "PILLAR_NOTES",
+              title: "Notes App Reality Check",
+              description: "iPhone Notes App screenshot. 'Expectation vs Reality' format. Relatable, raw, and slightly chaotic.",
+              format: "STATIC",
+              visualStyle: "DIGITAL SCREENSHOT ONLY. Apple Notes App UI. Yellow background. NO HANDS holding the phone. NO BEZEL.",
+              hookStyle: "Unpopular Opinion: [Statement].",
+              example: "lunch break expectation vs reality.\n\n🥗 expectation: healthy salad, 30 min walk, listen to a podcast.\n\n🥐 reality: inhaling a pret baguette over the sink in 3 minutes between interviews"
+          },
+          {
+              id: "PILLAR_MASCOT",
+              title: "The HR Violation (Mascot)",
+              description: "The pet is the 'Real Boss' and says the things the human can't without getting fired. Unfiltered brand truth.",
+              format: "STATIC",
+              visualStyle: "Close up of pet looking judgmental or sleeping. Human working in background.",
+              hookStyle: "My boss said what we're all thinking.",
+              example: "Cat staring blankly. Caption: 'He said the client's budget is disrespectful and we should bite them. I'm legally required to disagree.'"
+          },
+          {
+              id: "PILLAR_AESTHETIC",
+              title: "The Hobby (Vibe Check)",
+              description: "A glimpse into the persona's life outside work. Humanizes them.",
+              format: "STATIC",
+              visualStyle: "High contrast, flash photography, or golden hour. No faces, just hands/objects.",
+              hookStyle: "POV: It's Sunday and I'm not thinking about work.",
+              example: "Thrifting haul or specific coffee order. 'My personality is just oat milk and vintage denim.'"
+          },
+          {
+              id: "PILLAR_FLY",
+              title: "Fly on the Wall (Trend)",
+              description: "Trend advice framed as overheard gossip or an interview.",
+              format: "REEL",
+              visualStyle: "Talking head, holding a coffee, walking or sitting in car.",
+              hookStyle: "I was interviewing a [Customer] today and she said...",
+              example: "She used this audio and got 10k views. Don't let it flop."
+          }
+      ]
   },
   assets: {
     miso_cat: { 
@@ -120,8 +167,8 @@ const TESS_BRAIN: BrainData = {
         name: "The Car Office",
         visualData: "Car interior (driver's seat). Blonde woman wearing black 'NoSho' branded t-shirt. Natural daylight coming through windshield. Seatbelt on.",
         defaultContext: "Vlogging between client visits, quick update.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: false
     },
     [LocationId.LOC_WHITEBOARD]: {
@@ -129,8 +176,8 @@ const TESS_BRAIN: BrainData = {
         name: "Strategy Session",
         visualData: "Whiteboard with handwritten text 'Old Way vs New Way'. Lists features like 'Live Availability', 'Deposits'. Blonde woman pointing at board. Office window in background.",
         defaultContext: "Explaining the concept / Teaching.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: false
     },
     [LocationId.LOC_STREET]: {
@@ -138,8 +185,8 @@ const TESS_BRAIN: BrainData = {
         name: "City Commute",
         visualData: "Rainy city street (Manchester/London vibe). Wet pavement, red brick buildings in background. Blonde woman in black t-shirt holding phone selfie-style.",
         defaultContext: "Walking to the office, rainy day mood.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: false
     },
     [LocationId.LOC_OFFICE]: {
@@ -147,8 +194,8 @@ const TESS_BRAIN: BrainData = {
         name: "Modern Office",
         visualData: "Open plan office with brick walls and large windows. Snake plants in pots. Blonde woman taking selfie in black NoSho t-shirt.",
         defaultContext: "Working at the office.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_TRAIN]: {
@@ -156,8 +203,8 @@ const TESS_BRAIN: BrainData = {
         name: "Commute / Travel",
         visualData: "Train window seat. Sunset golden hour lighting hitting face. Blonde woman wearing sunglasses and black NoSho t-shirt. Reflective mood.",
         defaultContext: "Main character moment, travel thoughts.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: false
     },
     [LocationId.LOC_TOILET]: { 
@@ -183,8 +230,8 @@ const TESS_BRAIN: BrainData = {
         name: "Resort Pool",
         visualData: "Large resort swimming pool, palm trees, wooden decking with lounge chairs. Sunny clear sky. High end vacation vibe. 360 view.",
         defaultContext: "Vacation content, aspirational.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_LOCKER]: {
@@ -192,8 +239,8 @@ const TESS_BRAIN: BrainData = {
         name: "Gym Locker Room",
         visualData: "Modern locker room, black lockers, brick walls, large mirrors, LED lighting. Clean and industrial. 360 view.",
         defaultContext: "Post-gym, getting ready.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_STAIRS]: {
@@ -201,8 +248,8 @@ const TESS_BRAIN: BrainData = {
         name: "Office Stairwell",
         visualData: "Curved modern staircase, grey walls, black handrail. Minimalist architectural vibe. 360 view.",
         defaultContext: "Transition shot, walking to meeting.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_CORRIDOR]: {
@@ -210,8 +257,8 @@ const TESS_BRAIN: BrainData = {
         name: "Office Corridor",
         visualData: "Long hallway with brick walls and dark doors. Hardwood floors. Modern industrial office feel. 360 view.",
         defaultContext: "Walking shot, busy movement.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_KITCHEN]: {
@@ -219,8 +266,8 @@ const TESS_BRAIN: BrainData = {
         name: "Open Plan Kitchen",
         visualData: "Modern kitchen with wooden cabinets and island. Dining table set up. Open plan living area visible. 360 view.",
         defaultContext: "Coffee break, lunch, casual chat.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     },
     [LocationId.LOC_LIVING]: {
@@ -228,8 +275,8 @@ const TESS_BRAIN: BrainData = {
         name: "Living Room",
         visualData: "Cozy living room with green sofa, large windows, tv unit. Wooden floors. 360 view.",
         defaultContext: "Relaxing, evening content.",
-        imageUrl: "",
-        imageUrls: [],
+        imageUrl: "", 
+        imageUrls: [], 
         is360: true
     }
   },
@@ -288,6 +335,7 @@ const BLANK_BRAIN: BrainData = {
       anti_influencer_angle: "",
       emotional_hooks: [],
       content_archetypes: [],
+      active_pillars: [],
       community_dynamics: [],
       conversion_philosophy: "",
       viral_triggers: [],
@@ -332,7 +380,8 @@ const STORE: Record<string, any> = {
     settings: null,
     playbook: [],
     draft: null,
-    templates: []
+    templates: [],
+    sprint: [] // NEW: Stores the current content sprint
 };
 
 // HELPER: Generate a prefixed key for specific client data
@@ -391,8 +440,13 @@ const loadClientData = async (clientId: string) => {
             let needsSave = false;
             if (!brain.brand.raw_knowledge) { brain.brand.raw_knowledge = TESS_BRAIN.brand.raw_knowledge; needsSave = true; }
             if (!brain.identity.bio) { brain.identity.bio = TESS_BRAIN.identity.bio; needsSave = true; }
-            // REMOVED FORCED LOCATION RESTORATION
-            // if (Object.keys(brain.locations || {}).length === 0) { brain.locations = TESS_BRAIN.locations; needsSave = true; }
+            
+            // ENSURE NEW PILLARS ARE LOADED IF MISSING
+            if (!brain.strategy?.active_pillars || brain.strategy.active_pillars.length === 0) {
+                brain.strategy = { ...brain.strategy, active_pillars: TESS_BRAIN.strategy.active_pillars };
+                needsSave = true;
+            }
+
             if (!brain.brand.products) { brain.brand.products = []; needsSave = true; }
             
             if (needsSave) {
@@ -420,6 +474,8 @@ const loadClientData = async (clientId: string) => {
     STORE.templates = await loadFromDb(`${prefix}_templates`) || [];
     // 8. Draft
     STORE.draft = await loadFromDb(`${prefix}_draft`) || null;
+    // 9. Sprint (NEW)
+    STORE.sprint = await loadFromDb(`${prefix}_sprint`) || [];
 };
 
 // --- PUBLIC API ---
@@ -494,6 +550,13 @@ export const getDraft = () => STORE.draft;
 export const saveDraft = (draft: any) => {
     STORE.draft = draft;
     saveToDb(getClientKey('draft'), draft);
+};
+
+// --- NEW SPRINT METHODS ---
+export const getContentSprint = (): TessDayPlan[] => STORE.sprint || [];
+export const saveContentSprint = (sprint: TessDayPlan[]) => {
+    STORE.sprint = sprint;
+    saveToDb(getClientKey('sprint'), sprint);
 };
 
 // --- CLIENT MANAGEMENT ---

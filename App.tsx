@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TrendHunter from './components/TrendHunter';
@@ -12,6 +14,7 @@ import AgentOmniBar from './components/AgentOmniBar';
 import Settings from './components/Settings';
 import ThumbnailMaker from './components/ThumbnailMaker';
 import VoiceChanger from './components/VoiceChanger';
+import SocialStrategy from './components/SocialStrategy'; // NEW
 import Onboarding from './components/Onboarding';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeedItem, FeedPost } from './types';
@@ -141,8 +144,9 @@ const App: React.FC = () => {
       case 'brain': return <BrainManager />;
       case 'trends': return <TrendHunter />;
       case 'content': return <ContentStudio onAddToFeed={handleAddToFeed} />;
+      case 'strategy': return <SocialStrategy />; // NEW
       case 'vision': return <VisionAnalyst />;
-      case 'voice': return <VoiceChanger />; // Added route
+      case 'voice': return <VoiceChanger />; 
       case 'settings': return <Settings />;
       default: return <FeedPlanner />;
     }

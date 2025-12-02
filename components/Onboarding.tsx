@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getBrain, updateBrain, saveAppSettings } from '../services/brain';
 import { performInitialResearch, generateOnboardingCandidates, generateStarterEnvironments, generateDeepPersona, generatePersonaGallery } from '../services/geminiService';
-import { BrainData, AvatarCandidate, BrandContext, PersonaCV, BusinessInfo, VoiceMode } from '../types';
+import { BrainData, AvatarCandidate, BrandContext, PersonaCV, BusinessInfo, VoiceMode, LocationData } from '../types';
 import { CheckIcon, CloseIcon } from './icons';
 
 declare global {
@@ -14,31 +15,60 @@ interface OnboardingProps {
   onComplete: () => void;
 }
 
+// Client-facing talking points explaining the "Why" and "Benefit"
 const LOADING_STEPS = [
-    "Ingesting Brand Identity: Extracting core values and mission...",
-    "Visual Semiotics Scan: Decoding aesthetic patterns for consistency...",
-    "Linguistic Analysis: Calibrating Tone of Voice for maximum resonance...",
-    "Competitor Cross-Reference: Identifying market gaps and opportunities...",
-    "Audience Psychographics: Mapping emotional triggers and desires...",
-    "Friction Point Detection: Locating barriers to customer conversion...",
-    "Content Strategy Synthesis: Formulating high-impact pillars...",
-    "Persona Calibration: Aligning the AI operator with brand culture..."
+    "Analyzing Brand DNA... Decoding your unique voice so the AI feels like a human team member, not a bot.",
+    "Scanning Competitors... Identifying gaps in the market so you can step in and steal their engagement.",
+    "Decoding Audience Psychology... Finding the emotional triggers that turn passive followers into obsessed fans.",
+    "Calibrating Tone of Voice... Fine-tuning the slang and cadence to match your specific demographic perfectly.",
+    "Drafting Content Pillars... Shifting from 'random posting' to 'strategic storytelling' that drives revenue.",
+    "Building Persona Backstories... Because people trust people. We're creating characters your audience will love.",
+    "Aligning Visual Aesthetics... Ensuring every generated image matches your brand's premium look and feel.",
+    "Simulating Customer Interactions... Testing how this persona handles DMs, complaints, and praise.",
+    "Mapping Sales Funnels... Integrating 'Shadow Selling' techniques to sell without being salesy.",
+    "Reviewing Industry Trends... Ensuring the persona is up-to-date with the latest viral movements.",
+    "Constructing Narrative Arcs... Planning months of storytelling content, not just one-off posts.",
+    "Generating Face Geometry... Creating a consistent, recognizable face for your brand ambassador.",
+    "Checking Trademark Vibes... Ensuring the personality is distinct enough to be ownable.",
+    "Synthesizing Humor Modules... Teaching the AI what is funny to *your* specific customer."
 ];
 
 const HIRING_STEPS = [
-    "Signing contracts...",
-    "Moving into the apartment...",
-    "Unpacking childhood memories...",
-    "Generating specific coffee order...",
-    "Simulating traumatic dating history...",
-    "Conducting onboarding photoshoot...",
-    "Developing film rolls (1/6)...",
-    "Developing film rolls (3/6)...",
-    "Curating Instagram gallery...",
-    "Defining irrational fears...",
-    "Setting up the home office...",
-    "Meeting the team...",
-    "Preparing to launch..."
+    "Synthesizing Persona Psychology... Creating deep-seated motivations that drive authentic behavior.",
+    "Designing the Living Space... Generating a home environment that reflects their specific income and taste.",
+    "Validating Visual Context... Ensuring the background details match the persona's backstory.",
+    "Constructing Childhood Memories... Giving them a history so they don't feel like a chatbot.",
+    "Generating 'Work' Environment... Building a specific office space to anchor their professional content.",
+    "Calibrating Facial Geometry... Ensuring the face looks identical across every single generated image.",
+    "Simulating Social Habits... Determining how they reply to DMs based on their 'Chaos Level'.",
+    "Finalizing Visual Assets... Rendering high-fidelity photos of the persona in their new home."
+];
+
+const CLIENT_BENEFITS = [
+    {
+        title: "Constructing the Persona's Mind",
+        text: "We aren't just generating a face. We are simulating a full human psychology—memories, irrational fears, and daily habits. **Why?** Because audiences connect with *flaws and humanity*, not perfect robotic avatars."
+    },
+    {
+        title: "Architecting Their Environment",
+        text: "The AI is now building a 3D-consistent world for them to live in—a messy apartment, a specific office desk, a favorite coffee shop. **Why?** To create a 'sitcom-like' familiarity where followers recognize the background in every video."
+    },
+    {
+        title: "Locking Visual Consistency",
+        text: "We are generating a unique facial geometry map and applying it to every scene. **Why?** This ensures that whether they are at the gym or in a meeting, they are unmistakably the same person, building trust over time."
+    },
+    {
+        title: "Simulating Professional Experience",
+        text: "We are injecting 'Day Job' memories into their backstory. **Why?** So they can speak with authority about your industry, using the correct jargon and understanding the specific pain points of your customers."
+    },
+    {
+        title: "Aligning Commercial Strategy",
+        text: "The AI is learning how to weave your key selling points into casual, entertaining stories ('Shadow Selling'). **Why?** To drive revenue through entertainment without feeling 'salesy' or corporate."
+    },
+    {
+        title: "Calibrating Tone of Voice",
+        text: "We're fine-tuning the slang, cadence, and emoji usage based on the persona's age and location. **Why?** This ensures the persona sounds exactly like a native to your specific niche, avoiding the 'corporate bot' feel."
+    }
 ];
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
@@ -47,10 +77,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false); 
   const [isHiring, setIsHiring] = useState(false);
   
   const [loadingStep, setLoadingStep] = useState(0);
   const [hiringStep, setHiringStep] = useState(0);
+  const [benefitIndex, setBenefitIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [researchProgress, setResearchProgress] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -58,13 +90,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
   
-  // Steps: input -> researching -> archetype_selection -> generating -> review -> cv_review
   const [step, setStep] = useState<'input' | 'researching' | 'archetype_selection' | 'generating' | 'review' | 'cv_review'>('input');
   
   const [selectedArchetype, setSelectedArchetype] = useState<'employee' | 'megafan'>('employee');
   const [candidates, setCandidates] = useState<AvatarCandidate[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [selectedVoiceModeIndex, setSelectedVoiceModeIndex] = useState<number>(1); // Default to Middle (Balanced)
+  const [selectedVoiceModeIndex, setSelectedVoiceModeIndex] = useState<number>(1);
   
   // Card Deck State
   const [cardIndex, setCardIndex] = useState(0);
@@ -74,29 +105,36 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
   
-  // Staging data
   const [brandContext, setBrandContext] = useState<BrandContext | null>(null);
   const [personaCV, setPersonaCV] = useState<PersonaCV | null>(null);
   const [businessInfo, setBusinessInfo] = useState<Partial<BusinessInfo> | null>(null);
 
-  // Cycle through loading messages
+  // Cycle through loading messages (7 seconds)
   useEffect(() => {
-      if (!isAnalyzing && !isGenerating) return;
-      // Slowed down slightly to give time to read the "Talking Points"
+      if (!isAnalyzing && !isGenerating && !isLoadingMore) return;
       const interval = setInterval(() => {
           setLoadingStep(prev => (prev + 1) % LOADING_STEPS.length);
-      }, 3000);
+      }, 7000); 
       return () => clearInterval(interval);
-  }, [isAnalyzing, isGenerating]);
+  }, [isAnalyzing, isGenerating, isLoadingMore]);
   
-  // Cycle through hiring messages
+  // Cycle through hiring messages (7 seconds)
   useEffect(() => {
       if (!isHiring) return;
       const interval = setInterval(() => {
           setHiringStep(prev => (prev + 1) % HIRING_STEPS.length);
-      }, 2500); // 2.5s per step to allow time for image gen
+      }, 7000); 
       return () => clearInterval(interval);
   }, [isHiring]);
+
+  // Cycle through benefits (7 seconds)
+  useEffect(() => {
+      if (!isHiring && !isLoadingMore) return;
+      const interval = setInterval(() => {
+          setBenefitIndex(prev => (prev + 1) % CLIENT_BENEFITS.length);
+      }, 7000); 
+      return () => clearInterval(interval);
+  }, [isHiring, isLoadingMore]);
 
   useEffect(() => {
       if (isAnalyzing) {
@@ -115,16 +153,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       }
   }, [isAnalyzing]);
 
-  // Generation Progress Simulation
   useEffect(() => {
       if (isGenerating) {
           setGenerationProgress(0);
           const interval = setInterval(() => {
               setGenerationProgress(prev => {
                   if (prev >= 99) return prev;
-                  // Logarithmic-ish approach: moves fast then slows down
                   const remaining = 99 - prev;
-                  // Roughly 30-40s total time
                   const inc = Math.max(0.1, remaining * 0.05);
                   return prev + inc;
               });
@@ -188,7 +223,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     setError(null);
 
     try {
-        // Phase 1: Just get the raw data
         const rawData = await performInitialResearch(cleanUrl);
         setResearchData(rawData);
         setStep('archetype_selection');
@@ -210,7 +244,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       setIsGenerating(true);
       
       try {
-          // Phase 2: Generate candidates based on choice
           const result = await generateOnboardingCandidates(researchData, type);
           setCandidates(result.candidates);
           setBrandContext(result.brandContext);
@@ -235,21 +268,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   
   const handleLoadMore = async () => {
       if (!researchData) return;
-      setIsGenerating(true);
-      setCardIndex(0); // Reset stack when loading more
+      setIsLoadingMore(true); 
+      // Do NOT reset cardIndex. We append to the list.
+      
       try {
           const result = await generateOnboardingCandidates(researchData, selectedArchetype);
-          setCandidates(result.candidates); // Replace with new batch
+          setCandidates(prev => [...prev, ...result.candidates]);
       } catch (e) {
           console.error("Failed to load more");
+          setError("Failed to load more candidates. Please try again.");
       } finally {
-          setIsGenerating(false);
+          setIsLoadingMore(false);
       }
   };
 
   const handleSelectCandidate = (id: string) => {
       setSelectedCandidateId(id);
-      setSelectedVoiceModeIndex(1); // Reset to Balanced
+      setSelectedVoiceModeIndex(1);
       setStep('cv_review');
   };
 
@@ -269,39 +304,52 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       const selectedCandidate = candidates.find(c => c.id === selectedCandidateId);
       if (!selectedCandidate) return;
 
-      // GET SELECTED MODE DATA
       const mode = selectedCandidate.voiceModes[selectedVoiceModeIndex];
 
       setIsHiring(true);
       
-      // 1. GENERATE DEEP PERSONA (Backstory, Routine, Visual Specs)
+      // 1. Generate Deep Persona
       let deepPersona: any = null;
       try {
           deepPersona = await generateDeepPersona(selectedCandidate, mode, businessInfo);
       } catch (e) {
           console.error("Deep persona gen failed", e);
-          deepPersona = { 
-              backstory: "", 
-              daily_routine: "", 
-              psychology: { motivation: "", fear: "", habits: [], hobbies: [] }, 
-              lore: "", 
-              visual_attributes: {},
-              content_pillars: "",
-              humor_pillars: ""
-          };
+          deepPersona = { backstory: "", daily_routine: "", psychology: { motivation: "", fear: "", habits: [], hobbies: [] }, lore: "", visual_attributes: {}, content_pillars: "", humor_pillars: "" };
       }
 
-      // 2. GENERATE PHOTO GALLERY (6 Images)
-      // This happens while the "Developing film" loading step is shown
+      // 2. Draft Brain for Locations (Needs bio & style)
+      const draftBrain: BrainData = {
+          ...getBrain(),
+          brandContext,
+          personaCV,
+          onboardingType: selectedArchetype,
+          brand: { ...getBrain().brand, ...businessInfo, name: businessInfo?.name || "Brand" },
+          identity: {
+              ...getBrain().identity,
+              name: selectedCandidate.name || "Tess",
+              role: selectedCandidate.day_job || "Operator",
+              bio: mode.voiceDescription,
+          },
+          styleGuide: {
+              ...getBrain().styleGuide,
+              persona_definition: `**Appearance:** ${deepPersona.visual_attributes?.clothing_style}, ${deepPersona.visual_attributes?.hair_style}.\n**Vibe:** ${mode.title}.`,
+          }
+      };
+
+      // 3. Generate Locations (Using Draft Brain)
+      let newLocations: Record<string, LocationData> = {};
+      try {
+         newLocations = await generateStarterEnvironments(draftBrain, () => {});
+      } catch (e) { console.error("Loc Gen Failed", e); }
+
+      // 4. Generate Gallery (Using Candidate + Generated Locations)
       let generatedGallery: Array<{id: string, url: string, label: string}> = [];
       try {
-          generatedGallery = await generatePersonaGallery(selectedCandidate, businessInfo, deepPersona);
-      } catch (e) {
-          console.error("Gallery gen failed", e);
-      }
+          generatedGallery = await generatePersonaGallery(selectedCandidate, businessInfo, deepPersona, newLocations);
+      } catch (e) { console.error("Gallery gen failed", e); }
 
+      // 5. Final Brain Construction
       const currentBrain = getBrain();
-      
       const locationPart = selectedCandidate.location ? ` Based in ${selectedCandidate.location}.` : '';
       const petPart = selectedCandidate.pet ? ` Owner of ${selectedCandidate.pet}.` : '';
       const jobPart = selectedCandidate.day_job ? ` Works as a ${selectedCandidate.day_job}.` : '';
@@ -311,7 +359,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           ...currentBrain,
           brandContext,
           personaCV,
-          onboardingType: selectedArchetype, // Persist the choice
+          onboardingType: selectedArchetype,
           brand: {
               ...currentBrain.brand,
               ...businessInfo,
@@ -325,16 +373,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               name: selectedCandidate.name || "Tess",
               role: selectedCandidate.day_job || (selectedCandidate.archetype === 'employee' ? "Internal Operator" : "Super Fan Creator"),
               bio: enhancedBio,
-              age: 28, // Default
+              age: 28,
               pronouns: selectedCandidate.pronouns || "They/Them",
               birthday: selectedCandidate.birthday || "Jan 1st",
               avatar: selectedCandidate.img,
-              
-              // DEEP DATA MAPPING
               backstory: deepPersona.backstory,
               daily_routine: deepPersona.daily_routine,
-              raw_knowledge: deepPersona.lore, // Stores specific character secrets/lore
-              
+              raw_knowledge: deepPersona.lore,
               psychology: {
                   ...currentBrain.identity.psychology,
                   motivation: deepPersona.psychology.motivation,
@@ -354,18 +399,15 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   keywords: [],
                   forbidden: []
               },
-              
-              // VISUAL CONSISTENCY MAPPING
               avatarReferences: {
                   front: `Close up portrait of ${selectedCandidate.name}. ${deepPersona.visual_attributes?.hair_style || ''}.`,
                   side: `Side profile of ${selectedCandidate.name}. ${deepPersona.visual_attributes?.clothing_style || ''}.`,
                   candid: `Candid lifestyle shot of ${selectedCandidate.name} with ${selectedCandidate.pet || 'pet'}.`
               },
               referenceImages: [selectedCandidate.img, ...generatedGallery.map(g => g.url)],
-              cameraRoll: generatedGallery.map(g => g.url), // Seed camera roll with gallery
+              cameraRoll: generatedGallery.map(g => g.url),
               socials: currentBrain.identity.socials
           },
-          // Populating assets with specific pet
           assets: {
               ...currentBrain.assets,
               miso_cat: {
@@ -373,7 +415,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   imageUrl: generatedGallery.find(g => g.label.includes("Pet"))?.url || ""
               }
           },
-          // Populating specific style guide
           styleGuide: {
               ...currentBrain.styleGuide,
               persona_definition: `**Appearance:** ${deepPersona.visual_attributes?.clothing_style}, ${deepPersona.visual_attributes?.hair_style}, ${deepPersona.visual_attributes?.accessories}.\n**Vibe:** ${mode.title}.`,
@@ -381,15 +422,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               content_pillars: deepPersona.content_pillars || "",
               humor_pillars: deepPersona.humor_pillars || ""
           },
-          gallery: generatedGallery, // The official gallery
+          gallery: generatedGallery,
+          locations: newLocations,
           candidates: [],
           isConfigured: true
       };
-      
-      try {
-         const newLocations = await generateStarterEnvironments(newBrain, () => {});
-         newBrain.locations = newLocations;
-      } catch (e) { console.error(e); }
       
       updateBrain(newBrain);
       localStorage.setItem('tess_just_hired', 'true');
@@ -400,6 +437,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       }, 1000);
   };
 
+  // ... (SettingsModal remains same) ...
   const SettingsModal = () => (
       <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
         <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl">
@@ -449,61 +487,33 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6">
               <div className="bg-gray-50 p-10 rounded-3xl border border-gray-100 shadow-xl text-center w-full max-w-md">
                   <div className="w-16 h-16 border-4 border-brand-purple border-t-transparent rounded-full animate-spin mb-6 mx-auto"></div>
-                  <h3 className="text-2xl font-bold text-brand-dark mb-2">Deep Researching... {Math.round(researchProgress)}%</h3>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-4"><div className="h-full bg-brand-purple transition-all duration-300 ease-out" style={{ width: `${researchProgress}%` }}></div></div>
-                  <p className="text-brand-purple font-mono text-sm animate-pulse h-6 uppercase tracking-widest">{`> ${LOADING_STEPS[loadingStep]}`}</p>
+                  <h3 className="text-2xl font-bold text-brand-dark mb-4">Deep Researching... {Math.round(researchProgress)}%</h3>
+                  <div className="h-20 flex items-center justify-center mb-6">
+                      <p className="text-brand-purple font-medium text-sm leading-relaxed transition-all duration-300">
+                          {LOADING_STEPS[loadingStep]}
+                      </p>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-1"><div className="h-full bg-brand-purple transition-all duration-300 ease-out" style={{ width: `${researchProgress}%` }}></div></div>
               </div>
           </div>
       );
   }
 
-  // VIEW: ARCHETYPE SELECTION
+  // VIEW: ARCHETYPE SELECTION (Same as before)
   if (step === 'archetype_selection') {
       return (
           <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 animate-fade-in">
               <div className="max-w-4xl w-full text-center">
                   <h2 className="text-4xl font-extrabold text-brand-dark mb-4 tracking-tight">Who is running the account?</h2>
                   <p className="text-lg text-gray-500 mb-12">Choose the persona perspective for your content strategy.</p>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* OPTION 1: EMPLOYEE */}
-                      <button 
-                        onClick={() => handleArchetypeSelect('employee')}
-                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-purple rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden"
-                      >
-                          <div className="w-full flex justify-center mb-6">
-                              <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                                  <span className="text-6xl">💼</span>
-                              </div>
-                          </div>
-                          <div className="text-center">
-                              <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-purple transition-colors">The Insider</h3>
-                              <span className="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-full mb-4">Employee</span>
-                              <p className="text-gray-600 leading-relaxed font-medium">
-                                  "I work here. I know the team. I share behind-the-scenes secrets and expert tips."
-                              </p>
-                              <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"We"</span></div>
-                          </div>
+                      <button onClick={() => handleArchetypeSelect('employee')} className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-purple rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden">
+                          <div className="w-full flex justify-center mb-6"><div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><span className="text-6xl">💼</span></div></div>
+                          <div className="text-center"><h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-purple transition-colors">The Insider</h3><span className="inline-block px-3 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-full mb-4">Employee</span><p className="text-gray-600 leading-relaxed font-medium">"I work here. I know the team. I share behind-the-scenes secrets and expert tips."</p><div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"We"</span></div></div>
                       </button>
-
-                      {/* OPTION 2: SUPER FAN */}
-                      <button 
-                        onClick={() => handleArchetypeSelect('megafan')}
-                        className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-pink rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden"
-                      >
-                          <div className="w-full flex justify-center mb-6">
-                              <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                                  <span className="text-6xl">🤩</span>
-                              </div>
-                          </div>
-                          <div className="text-center">
-                              <h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-pink transition-colors">The Super Fan</h3>
-                              <span className="inline-block px-3 py-1 bg-pink-100 text-pink-600 text-xs font-bold rounded-full mb-4">UGC Creator / Ambassador</span>
-                              <p className="text-gray-600 leading-relaxed font-medium">
-                                  "I buy everything. I'm obsessed with the brand. I share my unboxings, reviews, and lifestyle."
-                              </p>
-                              <div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"I"</span></div>
-                          </div>
+                      <button onClick={() => handleArchetypeSelect('megafan')} className="bg-gray-50 hover:bg-white border-2 border-gray-100 hover:border-brand-pink rounded-[40px] p-10 transition-all hover:shadow-2xl hover:scale-[1.02] group text-left relative overflow-hidden">
+                          <div className="w-full flex justify-center mb-6"><div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><span className="text-6xl">🤩</span></div></div>
+                          <div className="text-center"><h3 className="text-2xl font-black text-brand-dark mb-2 group-hover:text-brand-pink transition-colors">The Super Fan</h3><span className="inline-block px-3 py-1 bg-pink-100 text-pink-600 text-xs font-bold rounded-full mb-4">UGC Creator / Ambassador</span><p className="text-gray-600 leading-relaxed font-medium">"I buy everything. I'm obsessed with the brand. I share my unboxings, reviews, and lifestyle."</p><div className="mt-6 text-sm font-bold text-gray-400 group-hover:text-brand-dark">Perspective: <span className="text-brand-dark">"I"</span></div></div>
                       </button>
                   </div>
               </div>
@@ -511,28 +521,50 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       );
   }
 
-  // VIEW: GENERATING CANDIDATES
+  // VIEW: GENERATING CANDIDATES (FULL SCREEN)
   if (step === 'generating') {
       return (
           <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6">
-              <div className="text-center">
+              <div className="text-center max-w-lg w-full">
                   <div className="w-20 h-20 bg-brand-dark text-white rounded-2xl flex items-center justify-center text-4xl mb-6 animate-bounce shadow-xl mx-auto">
                       {selectedArchetype === 'employee' ? '💼' : '🤩'}
                   </div>
-                  <h3 className="text-2xl font-bold text-brand-dark mb-2">Drafting {selectedArchetype === 'employee' ? 'Insider' : 'Super Fan'} Candidates...</h3>
-                  <p className="text-gray-500 max-w-sm mx-auto">Analyzing brand vibes and creating matching personas.</p>
-                  
-                  {/* PERCENTAGE LOADING BAR */}
-                  <div className="mt-8 w-64 mx-auto">
-                      <div className="flex justify-between text-xs font-bold text-brand-dark mb-1">
-                          <span>Progress</span>
-                          <span>{Math.round(generationProgress)}%</span>
+                  <h3 className="text-2xl font-bold text-brand-dark mb-4">Drafting {selectedArchetype === 'employee' ? 'Insider' : 'Super Fan'} Candidates...</h3>
+                  <div className="min-h-[100px] flex items-center justify-center mb-6">
+                      <div className="px-6 py-4 bg-brand-purple/5 rounded-2xl border border-brand-purple/10">
+                          <p className="text-brand-purple font-medium text-sm animate-pulse leading-relaxed">{LOADING_STEPS[loadingStep]}</p>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                              className="h-full bg-brand-purple transition-all duration-200 ease-out" 
-                              style={{ width: `${generationProgress}%` }}
-                          ></div>
+                  </div>
+                  <div className="mt-4 w-64 mx-auto">
+                      <div className="flex justify-between text-xs font-bold text-brand-dark mb-1"><span>Progress</span><span>{Math.round(generationProgress)}%</span></div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-brand-purple transition-all duration-200 ease-out" style={{ width: `${generationProgress}%` }}></div></div>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // VIEW: FINALIZING HIRE (WHITE BACKGROUND + TALKING POINTS)
+  if (isHiring) {
+      const selectedName = candidates.find(c => c.id === selectedCandidateId)?.name || "Tess";
+      const currentBenefit = CLIENT_BENEFITS[benefitIndex];
+
+      return (
+          <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6">
+              <div className="text-center animate-fade-in max-w-2xl w-full">
+                  <div className="w-24 h-24 rounded-full border-4 border-gray-100 border-t-brand-purple animate-spin mb-8 mx-auto"></div>
+                  <h2 className="text-4xl font-black text-brand-dark mb-2 tracking-tight">{selectedName} is joining the team...</h2>
+                  <p className="text-brand-purple font-mono text-sm font-bold uppercase tracking-widest mb-12">{HIRING_STEPS[hiringStep]}</p>
+                  
+                  {/* Talking Points Card */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-3xl p-8 shadow-xl relative overflow-hidden transition-all duration-500">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-brand-purple"></div>
+                      <h3 className="text-lg font-bold text-brand-dark mb-3 flex items-center justify-center gap-2"><span className="text-xl">💡</span> {currentBenefit.title}</h3>
+                      <p className="text-gray-600 text-lg leading-relaxed">"{currentBenefit.text}"</p>
+                      <div className="mt-6 flex justify-center gap-2">
+                          {CLIENT_BENEFITS.map((_, i) => (
+                              <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === benefitIndex ? 'w-8 bg-brand-purple' : 'w-2 bg-gray-300'}`}></div>
+                          ))}
                       </div>
                   </div>
               </div>
@@ -540,54 +572,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       );
   }
 
-  // VIEW: HIRING ANIMATION
-  if (isHiring) {
-      const selectedName = candidates.find(c => c.id === selectedCandidateId)?.name || "Tess";
-      
-      return (
-          <div className="fixed inset-0 z-50 bg-brand-dark flex flex-col items-center justify-center text-white p-6">
-              <div className="text-center animate-fade-in">
-                  <div className="w-24 h-24 rounded-full border-4 border-white border-t-brand-purple animate-spin mb-8 mx-auto"></div>
-                  <h2 className="text-3xl font-bold mb-4">{selectedName} is joining the team...</h2>
-                  <p className="text-brand-purple font-mono text-lg animate-pulse uppercase tracking-widest">{HIRING_STEPS[hiringStep]}</p>
-              </div>
-          </div>
-      );
-  }
-
-  // VIEW: CV REVIEW (ENHANCED)
+  // VIEW: CV REVIEW
   if (step === 'cv_review' && selectedCandidateId) {
       const candidate = candidates.find(c => c.id === selectedCandidateId);
       if (!candidate) return null;
 
-      // Select active mode data (Fallbacks for safety)
       const currentMode = candidate.voiceModes?.[selectedVoiceModeIndex] || {
-          title: candidate.label,
-          mission: candidate.mission,
-          voiceDescription: "Standard voice.",
-          samplePost: "Check this out!",
-          chaosLevel: candidate.chaosLevel,
-          sarcasmLevel: candidate.sarcasmLevel
+          title: candidate.label, mission: candidate.mission, voiceDescription: "Standard voice.", samplePost: "Check this out!", chaosLevel: candidate.chaosLevel, sarcasmLevel: candidate.sarcasmLevel
       };
 
       return (
           <div className="fixed inset-0 z-50 bg-gray-100 flex items-center justify-center p-6 animate-fade-in overflow-y-auto">
               <div className="max-w-5xl w-full bg-white rounded-[40px] shadow-2xl border border-gray-200 overflow-hidden flex flex-col md:flex-row min-h-[600px] h-auto max-h-[95vh]">
-                  
-                  {/* Left: Visual */}
                   <div className="w-full md:w-2/5 bg-gray-100 relative h-64 md:h-auto flex-shrink-0">
-                      {candidate.img ? (
-                          <img src={candidate.img} className="w-full h-full object-cover" />
-                      ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-300 text-6xl">👤</div>
-                      )}
+                      {candidate.img ? <img src={candidate.img} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-6xl">👤</div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:hidden"></div>
-                      <button onClick={() => setStep('review')} className="absolute top-6 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/40 transition-colors z-20">
-                          ← Back
-                      </button>
+                      <button onClick={() => setStep('review')} className="absolute top-6 left-6 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/40 transition-colors z-20">← Back</button>
                   </div>
-
-                  {/* Right: The CV */}
                   <div className="w-full md:w-3/5 p-8 md:p-12 overflow-y-auto custom-scrollbar flex flex-col">
                       <div className="mb-6">
                           <span className="text-[10px] font-black text-brand-purple uppercase tracking-[0.2em] border border-brand-purple/20 px-2 py-1 rounded mb-3 inline-block">Candidate Profile</span>
@@ -597,105 +598,52 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                               {candidate.pronouns && <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-bold">{candidate.pronouns}</span>}
                               {candidate.birthday && <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-bold">🎂 {candidate.birthday}</span>}
                           </div>
-                          
-                          {/* LIFE SNAPSHOT ROW */}
                           <div className="flex flex-wrap gap-2 mb-2">
-                              {candidate.location && (
-                                  <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">
-                                      📍 {candidate.location}
-                                  </span>
-                              )}
-                              {candidate.day_job && (
-                                  <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">
-                                      💼 {candidate.day_job}
-                                  </span>
-                              )}
-                              {candidate.pet && (
-                                  <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">
-                                      🐾 {candidate.pet}
-                                  </span>
-                              )}
-                              {candidate.hobby && (
-                                  <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">
-                                      🎨 {candidate.hobby}
-                                  </span>
-                              )}
+                              {candidate.location && <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">📍 {candidate.location}</span>}
+                              {candidate.day_job && <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">💼 {candidate.day_job}</span>}
+                              {candidate.pet && <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">🐾 {candidate.pet}</span>}
+                              {candidate.hobby && <span className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 flex items-center gap-2">🎨 {candidate.hobby}</span>}
                           </div>
                       </div>
-
                       <div className="space-y-8 flex-1">
-                          
-                          {/* PERSONALITY ENGINE SELECTOR */}
                           <div>
                               <h3 className="text-xs font-bold text-brand-dark uppercase tracking-widest mb-3">Choose Personality Engine</h3>
                               <div className="grid grid-cols-3 gap-3">
                                   {['Calm', 'Balanced', 'Chaotic'].map((modeName, idx) => (
-                                      <button 
-                                        key={idx}
-                                        onClick={() => setSelectedVoiceModeIndex(idx)}
-                                        className={`py-3 px-2 rounded-xl text-xs font-bold transition-all border-2 ${selectedVoiceModeIndex === idx 
-                                            ? 'border-brand-purple bg-brand-purple/5 text-brand-purple shadow-sm transform scale-[1.02]' 
-                                            : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
-                                      >
-                                          {modeName}
-                                      </button>
+                                      <button key={idx} onClick={() => setSelectedVoiceModeIndex(idx)} className={`py-3 px-2 rounded-xl text-xs font-bold transition-all border-2 ${selectedVoiceModeIndex === idx ? 'border-brand-purple bg-brand-purple/5 text-brand-purple shadow-sm transform scale-[1.02]' : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'}`}>{modeName}</button>
                                   ))}
                               </div>
                           </div>
-
-                          {/* DYNAMIC CONTENT BASED ON SELECTION */}
                           <div className="animate-fade-in">
                               <h3 className="text-2xl font-bold text-brand-dark mb-2">{currentMode.title}</h3>
-                              
-                              {/* Mission */}
                               <div className="bg-brand-purple/5 p-6 rounded-2xl border-l-4 border-brand-purple mb-6">
                                   <h4 className="text-[10px] font-bold text-brand-purple uppercase tracking-widest mb-2">My Mission</h4>
                                   <p className="text-brand-dark font-medium italic leading-relaxed">"{currentMode.mission}"</p>
                               </div>
-
-                              {/* Voice Analysis - NEW */}
                               <div className="grid grid-cols-1 gap-6 mb-6">
                                   <div>
                                       <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Voice Analysis</h4>
                                       <p className="text-sm text-gray-700 leading-relaxed font-medium mb-3">{currentMode.voiceDescription}</p>
-                                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm text-gray-600 italic">
-                                          <span className="block text-[10px] font-bold text-gray-400 uppercase mb-1 not-italic">Sample Output:</span>
-                                          "{currentMode.samplePost}"
-                                      </div>
+                                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm text-gray-600 italic"><span className="block text-[10px] font-bold text-gray-400 uppercase mb-1 not-italic">Sample Output:</span>"{currentMode.samplePost}"</div>
                                   </div>
                               </div>
-
-                              {/* Personality Matrix */}
                               <div>
                                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Personality Matrix</h3>
                                   <div className="space-y-4">
                                       <div>
-                                          <div className="flex justify-between mb-1">
-                                              <span className="text-xs font-bold text-gray-700">Chaos Level</span>
-                                              <span className="text-xs font-bold text-brand-purple">{currentMode.chaosLevel}%</span>
-                                          </div>
-                                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                              <div className="h-full bg-brand-purple transition-all duration-1000 ease-out" style={{ width: `${currentMode.chaosLevel}%` }}></div>
-                                          </div>
+                                          <div className="flex justify-between mb-1"><span className="text-xs font-bold text-gray-700">Chaos Level</span><span className="text-xs font-bold text-brand-purple">{currentMode.chaosLevel}%</span></div>
+                                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-brand-purple transition-all duration-1000 ease-out" style={{ width: `${currentMode.chaosLevel}%` }}></div></div>
                                       </div>
                                       <div>
-                                          <div className="flex justify-between mb-1">
-                                              <span className="text-xs font-bold text-gray-700">Sarcasm</span>
-                                              <span className="text-xs font-bold text-brand-pink">{currentMode.sarcasmLevel}%</span>
-                                          </div>
-                                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                              <div className="h-full bg-brand-pink transition-all duration-1000 ease-out" style={{ width: `${currentMode.sarcasmLevel}%` }}></div>
-                                          </div>
+                                          <div className="flex justify-between mb-1"><span className="text-xs font-bold text-gray-700">Sarcasm</span><span className="text-xs font-bold text-brand-pink">{currentMode.sarcasmLevel}%</span></div>
+                                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-brand-pink transition-all duration-1000 ease-out" style={{ width: `${currentMode.sarcasmLevel}%` }}></div></div>
                                       </div>
                                   </div>
                               </div>
                           </div>
                       </div>
-
                       <div className="mt-10 pt-6 border-t border-gray-100 flex justify-end">
-                          <button onClick={handleConfirmHire} className="bg-brand-dark text-white px-10 py-4 rounded-xl font-black text-lg shadow-xl hover:scale-105 transition-transform flex items-center gap-3 w-full md:w-auto justify-center">
-                              Confirm Hire <span className="text-green-400">✔</span>
-                          </button>
+                          <button onClick={handleConfirmHire} className="bg-brand-dark text-white px-10 py-4 rounded-xl font-black text-lg shadow-xl hover:scale-105 transition-transform flex items-center gap-3 w-full md:w-auto justify-center">Confirm Hire <span className="text-green-400">✔</span></button>
                       </div>
                   </div>
               </div>
@@ -707,48 +655,25 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   return (
       <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col items-center justify-center p-6 overflow-hidden select-none">
           <div className="max-w-4xl w-full h-full max-h-[800px] flex flex-col relative items-center">
-              
-              {/* Header */}
               <div className="text-center mb-6 mt-4">
                   <h2 className="text-2xl font-black text-brand-dark tracking-tighter">Choose Your Operator</h2>
                   <p className="text-xs text-gray-500 mt-1">Swipe <span className="text-red-500 font-bold">Left</span> to Pass, <span className="text-green-500 font-bold">Right</span> to Hire.</p>
               </div>
-
-              {/* Card Container */}
               <div className="relative flex-1 w-full max-w-md perspective-1000">
                   {candidates.map((candidate, index) => {
-                      // Logic for positioning
                       let style: React.CSSProperties = {};
                       let isCurrent = index === cardIndex;
                       let isPassed = index < cardIndex;
                       let isUpcoming = index > cardIndex;
 
                       if (isCurrent) {
-                          style = {
-                              zIndex: 50,
-                              transform: `translateX(${dragX}px) rotate(${dragX * 0.05}deg)`,
-                              cursor: isDragging ? 'grabbing' : 'grab',
-                              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                          };
+                          style = { zIndex: 50, transform: `translateX(${dragX}px) rotate(${dragX * 0.05}deg)`, cursor: isDragging ? 'grabbing' : 'grab', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' };
                       } else if (isPassed) {
                           const stackOffset = (cardIndex - index) * 5; 
-                          style = {
-                              zIndex: 10 + index, 
-                              transform: `translateX(-350px) translateY(${stackOffset}px) rotate(-10deg) scale(0.85)`,
-                              opacity: 0.6,
-                              cursor: 'pointer',
-                              filter: 'grayscale(100%)' 
-                          };
+                          style = { zIndex: 10 + index, transform: `translateX(-350px) translateY(${stackOffset}px) rotate(-10deg) scale(0.85)`, opacity: 0.6, cursor: 'pointer', filter: 'grayscale(100%)' };
                       } else if (isUpcoming) {
                           const offset = index - cardIndex;
-                          // STACK EFFECT: Keep full opacity, scale down slightly, push down slightly
-                          style = {
-                              zIndex: 30 - offset,
-                              transform: `scale(${1 - offset * 0.05}) translateY(${offset * 12}px)`,
-                              opacity: 1, // NO TRANSPARENCY
-                              backgroundColor: 'white', // Ensure opaque background
-                              pointerEvents: 'none'
-                          };
+                          style = { zIndex: 30 - offset, transform: `scale(${1 - offset * 0.05}) translateY(${offset * 12}px)`, opacity: 1, backgroundColor: 'white', pointerEvents: 'none' };
                       }
 
                       return (
@@ -759,89 +684,57 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                               className={`absolute top-0 left-0 right-0 bottom-0 bg-white rounded-[32px] shadow-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-out origin-bottom ${isDragging && isCurrent ? 'transition-none' : ''}`}
                               style={style}
                           >
-                              {/* Drag Overlay Feedback */}
-                              {isCurrent && dragX > 100 && (
-                                  <div className="absolute top-10 left-10 border-4 border-green-500 text-green-500 font-black text-4xl px-4 py-2 rounded-xl transform -rotate-12 z-50">HIRE</div>
-                              )}
-                              {isCurrent && dragX < -100 && (
-                                  <div className="absolute top-10 right-10 border-4 border-red-500 text-red-500 font-black text-4xl px-4 py-2 rounded-xl transform rotate-12 z-50">PASS</div>
-                              )}
-
-                              {/* Image Area - 75% */}
+                              {isCurrent && dragX > 100 && <div className="absolute top-10 left-10 border-4 border-green-500 text-green-500 font-black text-4xl px-4 py-2 rounded-xl transform -rotate-12 z-50">HIRE</div>}
+                              {isCurrent && dragX < -100 && <div className="absolute top-10 right-10 border-4 border-red-500 text-red-500 font-black text-4xl px-4 py-2 rounded-xl transform rotate-12 z-50">PASS</div>}
                               <div className="h-[75%] bg-gray-100 relative overflow-hidden pointer-events-none">
-                                  {candidate.img ? (
-                                      <img src={candidate.img} className="w-full h-full object-cover" alt={candidate.label} draggable={false} />
-                                  ) : (
-                                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-6 text-center">
-                                          <span className="text-4xl mb-2">📷</span>
-                                          <span className="text-xs font-bold uppercase tracking-wide">Visualizing...</span>
-                                      </div>
-                                  )}
+                                  {candidate.img ? <img src={candidate.img} className="w-full h-full object-cover" alt={candidate.label} draggable={false} /> : <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-6 text-center"><span className="text-4xl mb-2">📷</span><span className="text-xs font-bold uppercase tracking-wide">Visualizing...</span></div>}
                                   <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/40 to-transparent"></div>
-                                  <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-sm font-black uppercase tracking-widest shadow-sm text-brand-dark border border-white">
-                                      {candidate.name}
-                                  </div>
+                                  <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-sm font-black uppercase tracking-widest shadow-sm text-brand-dark border border-white">{candidate.name}</div>
                               </div>
-
-                              {/* Text Area - 25% */}
                               <div className="h-[25%] p-6 flex flex-col justify-between bg-white relative z-10 pointer-events-none">
                                   <div>
                                       <div className="flex gap-2 overflow-hidden mb-2">
-                                          {candidate.traits.slice(0, 3).map(t => (
-                                              <span key={t} className="text-[9px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md whitespace-nowrap uppercase tracking-wide">{t}</span>
-                                          ))}
+                                          {candidate.traits.slice(0, 3).map(t => (<span key={t} className="text-[9px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md whitespace-nowrap uppercase tracking-wide">{t}</span>))}
                                       </div>
                                       <p className="text-xs font-bold text-brand-purple uppercase tracking-wider mb-1">{candidate.label}</p>
                                       <p className="text-lg font-bold text-brand-dark leading-snug">"{candidate.tagline}"</p>
                                   </div>
-                                  
-                                  <div className="flex justify-between items-end">
-                                      <span className="text-[10px] font-bold text-gray-300 uppercase">Verified {selectedArchetype === 'employee' ? 'Insider' : 'Super Fan'}</span>
-                                      <span className="text-xl">✨</span>
-                                  </div>
+                                  <div className="flex justify-between items-end"><span className="text-[10px] font-bold text-gray-300 uppercase">Verified {selectedArchetype === 'employee' ? 'Insider' : 'Super Fan'}</span><span className="text-xl">✨</span></div>
                               </div>
                           </div>
                       );
                   })}
                   
-                  {/* Empty State (End of Stack) */}
                   {cardIndex >= candidates.length && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[32px] border border-dashed border-gray-300 text-gray-400 z-0">
-                          <div className="text-6xl mb-4">💔</div>
-                          <p className="font-bold mb-2 text-brand-dark text-lg">No more candidates nearby.</p>
-                          <p className="text-xs text-gray-400 mb-8 uppercase tracking-widest">Widen your search parameters?</p>
-                          <div className="flex gap-2">
-                              <button onClick={() => setCardIndex(0)} className="bg-white border border-gray-200 text-gray-600 px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-50 transition-colors">
-                                  Start Over
-                              </button>
-                              <button onClick={handleLoadMore} className="bg-brand-dark text-white px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-800 transition-colors">
-                                  {isGenerating ? 'Scanning...' : 'Search Further'}
-                              </button>
-                          </div>
-                      </div>
+                      isLoadingMore ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[32px] shadow-2xl border border-gray-200 z-10 p-8 text-center">
+                             <div className="w-16 h-16 border-4 border-brand-purple border-t-transparent rounded-full animate-spin mb-6 mx-auto"></div>
+                             <h3 className="text-xl font-bold text-brand-dark mb-4">Recruiting new talent...</h3>
+                             <div className="bg-brand-purple/5 p-4 rounded-xl border border-brand-purple/10">
+                                 <h4 className="text-xs font-bold text-brand-purple uppercase tracking-widest mb-2">AI Strategy Logic</h4>
+                                 <p className="text-gray-600 text-xs font-medium leading-relaxed">"{CLIENT_BENEFITS[benefitIndex].text}"</p>
+                             </div>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-[32px] border border-dashed border-gray-300 text-gray-400 z-0">
+                            <div className="text-6xl mb-4">💔</div>
+                            <p className="font-bold mb-2 text-brand-dark text-lg">No more candidates nearby.</p>
+                            <p className="text-xs text-gray-400 mb-8 uppercase tracking-widest">Widen your search parameters?</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setCardIndex(0)} className="bg-white border border-gray-200 text-gray-600 px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-50 transition-colors">Start Over</button>
+                                <button onClick={handleLoadMore} className="bg-brand-dark text-white px-6 py-3 rounded-xl shadow-lg font-bold text-sm hover:bg-gray-800 transition-colors">Search Further</button>
+                            </div>
+                        </div>
+                      )
                   )}
               </div>
-
-              {/* Controls - Move below card stack using mt-8 */}
+              
               {cardIndex < candidates.length && (
                   <div className="h-24 flex items-center justify-center gap-10 mt-8 pb-4 relative z-[200]">
-                      <button 
-                          onClick={handlePass}
-                          className="w-16 h-16 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-gray-100 text-red-500 flex items-center justify-center hover:scale-110 hover:bg-red-50 transition-all active:scale-95 cursor-pointer"
-                          title="Pass"
-                      >
-                          <CloseIcon className="w-8 h-8" />
-                      </button>
-                      <button 
-                          onClick={() => handleSelectCandidate(candidates[cardIndex].id)}
-                          className="w-16 h-16 rounded-full bg-brand-dark shadow-[0_8px_25px_rgba(17,24,39,0.4)] border border-brand-dark text-green-400 flex items-center justify-center hover:scale-110 hover:shadow-2xl transition-all active:scale-95 cursor-pointer"
-                          title="Select Operator"
-                      >
-                          <CheckIcon className="w-8 h-8" />
-                      </button>
+                      <button onClick={handlePass} className="w-16 h-16 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.1)] border border-gray-100 text-red-500 flex items-center justify-center hover:scale-110 hover:bg-red-50 transition-all active:scale-95 cursor-pointer" title="Pass"><CloseIcon className="w-8 h-8" /></button>
+                      <button onClick={() => handleSelectCandidate(candidates[cardIndex].id)} className="w-16 h-16 rounded-full bg-brand-dark shadow-[0_8px_25px_rgba(17,24,39,0.4)] border border-brand-dark text-green-400 flex items-center justify-center hover:scale-110 hover:shadow-2xl transition-all active:scale-95 cursor-pointer" title="Select Operator"><CheckIcon className="w-8 h-8" /></button>
                   </div>
               )}
-
           </div>
       </div>
   );

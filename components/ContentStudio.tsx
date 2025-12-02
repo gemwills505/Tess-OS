@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { getBrain, updateBrain, getBank, saveBank } from '../services/brain';
+import { getBrain, updateBrain, getBank, saveBank, getContentSprint, saveContentSprint } from '../services/brain';
 import { TessDayPlan, FeedItem, BrainData, SprintDuration, Product } from '../types';
-import { generateTessWeek, generateTessCard, generateWeeklyFocusIdeas } from '../services/geminiService';
+import { generateTessWeek, generateTessCard, generateWeeklyFocusIdeas, generateGenAiImage } from '../services/geminiService';
 
 interface ContentStudioProps {
     onAddToFeed?: (item: FeedItem) => void;
@@ -38,8 +39,9 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
   const [weekPlan, setWeekPlan] = useState<TessDayPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [focus, setFocus] = useState('');
-  const [sprintDuration, setSprintDuration] = useState<SprintDuration>(14); // Default to 2 weeks for more variety
+  const [sprintDuration, setSprintDuration] = useState<SprintDuration>(14); 
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
+  const [generatingCardId, setGeneratingCardId] = useState<number | null>(null); // New: track which card is generating image
   const [activeCard, setActiveCard] = useState<TessDayPlan | null>(null);
   
   // Ideas State
@@ -59,6 +61,11 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
 
   useEffect(() => {
       setBrain(getBrain());
+      // Load saved sprint if available
+      const savedSprint = getContentSprint();
+      if (savedSprint && savedSprint.length > 0) {
+          setWeekPlan(savedSprint);
+      }
   }, []);
 
   const handleGiveMeWeek = async () => {
@@ -72,6 +79,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
           const activeProducts = brain.brand.products.filter(p => selectedProductIds.includes(p.id));
           const plan = await generateTessWeek(brain, focus, sprintDuration, activeProducts, launchAssets);
           setWeekPlan(plan);
+          saveContentSprint(plan); // Persist plan
       } catch (e) {
           alert("Failed to generate the plan. Check API connection.");
       } finally {
@@ -96,11 +104,10 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
       try {
           const newCard = await generateTessCard(brain, pillar);
           if (newCard) {
-              setWeekPlan(prev => {
-                  const next = [...prev];
-                  next[index] = newCard;
-                  return next;
-              });
+              const newPlan = [...weekPlan];
+              newPlan[index] = newCard;
+              setWeekPlan(newPlan);
+              saveContentSprint(newPlan); // Persist change
           }
       } catch (e) {
           alert("Failed to swap card.");
@@ -109,12 +116,35 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
       }
   };
 
-  const handleUseCard = (card: TessDayPlan) => {
+  const handleUseCard = async (card: TessDayPlan, index: number) => {
       if (!onAddToFeed) return;
+      if (generatingCardId === index) return;
       
-      let imageUrl = null;
-      if (card.assetType === 'camera_roll' && brain.identity.cameraRoll && brain.identity.cameraRoll.length > 0) {
-          // If it's a "Miso" card, look for Miso context? For now random from roll.
+      let imageUrl = card.imageUrl;
+
+      // Logic 1: If AssetType is 'generate' but no image exists, generate it NOW.
+      if (!imageUrl && card.assetType === 'generate') {
+          setGeneratingCardId(index);
+          try {
+              // Generate standard 9:16 social image
+              const generatedImg = await generateGenAiImage(card.visualPrompt, true, false, null, '9:16');
+              if (generatedImg) {
+                  imageUrl = generatedImg;
+                  // Save this generated image back to the sprint plan so it persists
+                  const newPlan = [...weekPlan];
+                  newPlan[index] = { ...card, imageUrl: generatedImg };
+                  setWeekPlan(newPlan);
+                  saveContentSprint(newPlan);
+              }
+          } catch (e) {
+              console.error("Auto-gen failed", e);
+              alert("Failed to generate image automatically. You can still add it and add an image later.");
+          } finally {
+              setGeneratingCardId(null);
+          }
+      } 
+      // Logic 2: If AssetType is 'camera_roll', pick a random one if not set
+      else if (card.assetType === 'camera_roll' && !imageUrl && brain.identity.cameraRoll && brain.identity.cameraRoll.length > 0) {
           const randomIndex = Math.floor(Math.random() * brain.identity.cameraRoll.length);
           imageUrl = brain.identity.cameraRoll[randomIndex];
       }
@@ -142,6 +172,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
       alert(`Generating branded thumbnail with text: "${card.textOverlay}" (Canvas Logic Stub)`);
   };
 
+  // ... (Other handlers remain unchanged)
   const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
@@ -213,7 +244,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
                               className="w-full h-24 p-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-brand-purple outline-none resize-none text-lg text-brand-dark placeholder-gray-300 mb-4 text-center"
                           />
                           
-                          {/* LAUNCH ASSETS (New) */}
+                          {/* LAUNCH ASSETS */}
                           <div className="mb-6">
                               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-center">Launch Assets (Optional)</label>
                               <div className="flex flex-wrap gap-2 justify-center">
@@ -294,11 +325,16 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
 
                           <button 
                               onClick={handleGiveMeWeek}
-                              className="group relative w-full py-6 bg-brand-dark rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300 overflow-hidden"
+                              disabled={loading}
+                              className="group relative w-full py-6 bg-brand-dark rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300 overflow-hidden disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
                           >
                               <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/20 to-brand-pink/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                               <h3 className="text-xl font-black text-white relative z-10 flex items-center justify-center gap-2">
-                                  <span>🚀</span> Draft {sprintDuration}-Day Strategy
+                                  {loading ? (
+                                      <><span className="animate-spin">🌀</span> Building Strategy...</>
+                                  ) : (
+                                      <><span>🚀</span> Draft {sprintDuration}-Day Strategy</>
+                                  )}
                               </h3>
                           </button>
                       </div>
@@ -317,7 +353,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4">
                       <div className="flex justify-between items-center mb-2">
                           <h3 className="font-bold text-brand-muted text-xs uppercase tracking-widest">{sprintDuration}-Day Deployment Plan</h3>
-                          <button onClick={() => setWeekPlan([])} className="text-xs text-red-400 hover:underline">Reset</button>
+                          <button onClick={() => { setWeekPlan([]); saveContentSprint([]); }} className="text-xs text-red-400 hover:underline">Reset</button>
                       </div>
                       
                       {weekPlan.map((card, idx) => (
@@ -325,11 +361,17 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
                               <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-brand-purple to-brand-pink"></div>
                               
                               {/* Thumbnail Preview */}
-                              <div className="w-24 h-32 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden relative">
-                                  <div className="absolute inset-0 flex items-center justify-center text-center p-2 bg-brand-dark/5">
-                                      <span className="text-[10px] font-black text-brand-dark uppercase leading-tight">{card.thumbnailHeadline}</span>
+                              <div className="w-24 h-32 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden relative border border-gray-200">
+                                  {card.imageUrl ? (
+                                      <img src={card.imageUrl} className="w-full h-full object-cover" />
+                                  ) : (
+                                      <div className="absolute inset-0 flex items-center justify-center text-center p-2 bg-brand-dark/5">
+                                          <span className="text-[10px] font-black text-brand-dark uppercase leading-tight">{card.thumbnailHeadline}</span>
+                                      </div>
+                                  )}
+                                  <div className="absolute bottom-1 right-1 text-[8px] bg-white/80 px-1 rounded shadow font-bold">
+                                      {card.assetType === 'camera_roll' ? 'GALLERY' : 'AI GEN'}
                                   </div>
-                                  <div className="absolute bottom-1 right-1 text-[8px] bg-white/80 px-1 rounded shadow font-bold">{card.assetType === 'camera_roll' ? 'GALLERY' : 'AI GEN'}</div>
                               </div>
 
                               {/* Content */}
@@ -350,10 +392,15 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
                               {/* Actions */}
                               <div className="flex flex-col justify-center gap-2">
                                   <button 
-                                      onClick={(e) => { e.stopPropagation(); handleUseCard(card); }}
-                                      className="bg-brand-dark text-white px-4 py-2 rounded-lg text-xs font-bold hover:scale-105 transition-transform shadow-lg"
+                                      onClick={(e) => { e.stopPropagation(); handleUseCard(card, idx); }}
+                                      disabled={generatingCardId === idx}
+                                      className="bg-brand-dark text-white px-4 py-2 rounded-lg text-xs font-bold hover:scale-105 transition-transform shadow-lg disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-1 min-w-[70px]"
                                   >
-                                      Use
+                                      {generatingCardId === idx ? (
+                                          <span className="animate-spin">🌀</span>
+                                      ) : (
+                                          "Use"
+                                      )}
                                   </button>
                                   <button 
                                       onClick={(e) => { e.stopPropagation(); handleSwapCard(idx, card.pillar); }}
@@ -369,7 +416,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
               )}
           </div>
 
-          {/* RIGHT: PHONE MOCKUP */}
+          {/* RIGHT: PHONE MOCKUP (unchanged) */}
           <div className="w-[380px] flex-shrink-0 flex flex-col items-center justify-center relative">
               <div className="w-full h-[750px] bg-white rounded-[50px] shadow-2xl border-[12px] border-gray-100 overflow-hidden relative ring-4 ring-gray-200">
                   <div className="absolute top-0 left-1/2 transform -translate-x-1/2 h-7 w-28 bg-gray-100 rounded-b-2xl z-20"></div>
@@ -415,7 +462,7 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
           </div>
       </div>
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL (unchanged) */}
       {activeCard && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
               <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl relative">
@@ -446,7 +493,17 @@ const ContentStudio: React.FC<ContentStudioProps> = ({ onAddToFeed }) => {
                       </div>
                   </div>
                   <div className="mt-8 flex justify-end">
-                      <button onClick={() => { handleUseCard(activeCard); setActiveCard(null); }} className="bg-brand-purple text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-brand-pink transition-colors">Confirm & Add to Feed</button>
+                      <button 
+                        onClick={() => { 
+                            // Find index if possible, otherwise pass -1 to skip generation or handle gracefully
+                            const idx = weekPlan.findIndex(c => c === activeCard);
+                            if(idx !== -1) handleUseCard(activeCard, idx); 
+                            setActiveCard(null); 
+                        }} 
+                        className="bg-brand-purple text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-brand-pink transition-colors"
+                      >
+                          Confirm & Add to Feed
+                      </button>
                   </div>
               </div>
           </div>

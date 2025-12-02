@@ -1,13 +1,12 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { getAppSettings, saveAppSettings, getBrain } from '../services/brain';
 import { constructImageGenPrompt } from '../services/geminiService';
 
 const Settings: React.FC = () => {
-  // Locked to Smart/Pro defaults
-  const [modelTier, setModelTier] = useState<'fast' | 'smart'>('smart');
+  const [modelTier, setModelTier] = useState<'fast' | 'smart' | 'pro'>('smart');
+  const [imageEngine, setImageEngine] = useState<'nano-fast' | 'nano-pro'>('nano-fast');
   
   // API Keys state
   const [geminiKey, setGeminiKey] = useState('');
@@ -23,7 +22,8 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
       const settings = getAppSettings();
-      setModelTier('smart'); // Force Smart
+      setModelTier(settings.modelTier || 'smart');
+      setImageEngine(settings.imageEngine as 'nano-fast' | 'nano-pro' || 'nano-fast');
       
       // Load keys from storage
       const storedGemini = localStorage.getItem('tess_gemini_key');
@@ -37,10 +37,9 @@ const Settings: React.FC = () => {
       
       setIsKeysSaved(true);
       
-      // Force settings to Pro defaults + Save ElevenLabs Key
       saveAppSettings({ 
-          modelTier: 'smart', 
-          imageEngine: 'nano-pro',
+          modelTier: modelTier, 
+          imageEngine: imageEngine,
           elevenLabsKey: elevenKey 
       });
 
@@ -57,7 +56,7 @@ const Settings: React.FC = () => {
   const runPromptLab = () => {
       const brain = getBrain();
       // Test the Nano Pro Logic
-      const output = constructImageGenPrompt(testPrompt, 'nano-pro', testEnvironment, brain);
+      const output = constructImageGenPrompt(testPrompt, imageEngine, testEnvironment, brain);
       setResultPrompt(output);
   };
 
@@ -119,12 +118,50 @@ const Settings: React.FC = () => {
              </div>
         </div>
 
+        {/* NEURAL CONFIGURATION */}
+        <div className="glass-effect p-8 rounded-3xl">
+             <h3 className="text-lg font-bold text-brand-dark mb-4 flex items-center gap-2">
+                🔮 Neural Configuration
+             </h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                 <div className="p-4 bg-white/50 rounded-xl border border-white">
+                     <div className="text-xs font-bold text-brand-muted uppercase mb-1">Brain (Reasoning)</div>
+                     <select 
+                        value={modelTier}
+                        onChange={(e) => { setModelTier(e.target.value as any); setIsKeysSaved(false); }}
+                        className="w-full mt-1 p-2 rounded-lg bg-white border border-gray-200 font-bold text-brand-pink outline-none focus:ring-2 focus:ring-brand-purple/20"
+                     >
+                         <option value="fast">Gemini 2.5 Flash (Fastest)</option>
+                         <option value="smart">Gemini 2.5 Flash (Default)</option>
+                         <option value="pro">Gemini 3.0 Pro (Experimental)</option>
+                     </select>
+                     <p className="text-[10px] text-gray-500 mt-2">
+                        {modelTier === 'pro' ? 'Maximum reasoning capability. Slower response time.' : 'Optimized for speed and complex instruction following.'}
+                     </p>
+                 </div>
+                 <div className="p-4 bg-white/50 rounded-xl border border-white">
+                     <div className="text-xs font-bold text-brand-muted uppercase mb-1">Eyes (Vision Generation)</div>
+                     <select 
+                        value={imageEngine} 
+                        onChange={(e) => { setImageEngine(e.target.value as any); setIsKeysSaved(false); }}
+                        className="w-full mt-1 p-2 rounded-lg bg-white border border-gray-200 font-bold text-brand-purple outline-none focus:ring-2 focus:ring-brand-purple/20"
+                     >
+                         <option value="nano-fast">Nano Banana (Fast)</option>
+                         <option value="nano-pro">Nano Banana PRO (High Quality)</option>
+                     </select>
+                     <p className="text-[10px] text-gray-500 mt-2">
+                        {imageEngine === 'nano-fast' ? 'Generates images in 2-4 seconds. Good for drafts.' : 'Generates images in 8-12 seconds. High fidelity, better lighting.'}
+                     </p>
+                 </div>
+             </div>
+        </div>
+
         {/* PROMPT LABORATORY */}
         <div className="glass-effect p-8 rounded-3xl border border-brand-purple/20 shadow-lg">
              <h3 className="text-lg font-bold text-brand-dark mb-4 flex items-center gap-2">
-                🧪 Nano Pro Logic Test
+                🧪 Prompt Logic Test
              </h3>
-             <p className="text-xs text-gray-500 mb-4">See how your prompts are rewritten for the high-fidelity Nano Banana Pro engine.</p>
+             <p className="text-xs text-gray-500 mb-4">See how your prompts are rewritten based on the selected engine.</p>
              
              <div className="mb-4">
                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Raw Idea</label>
@@ -151,23 +188,6 @@ const Settings: React.FC = () => {
                      {resultPrompt}
                  </div>
              )}
-        </div>
-
-        {/* NEURAL CONFIGURATION (READ ONLY) */}
-        <div className="glass-effect p-8 rounded-3xl">
-             <h3 className="text-lg font-bold text-brand-dark mb-4 flex items-center gap-2">
-                🔮 Neural Configuration
-             </h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                 <div className="p-4 bg-white/50 rounded-xl border border-white">
-                     <div className="text-xs font-bold text-brand-muted uppercase mb-1">Brain (Reasoning)</div>
-                     <div className="font-bold text-brand-pink uppercase">Gemini 3.0 Pro (Smart)</div>
-                 </div>
-                 <div className="p-4 bg-white/50 rounded-xl border border-white">
-                     <div className="text-xs font-bold text-brand-muted uppercase mb-1">Eyes (Vision)</div>
-                     <div className="font-bold text-brand-purple uppercase">Nano Banana Pro</div>
-                 </div>
-             </div>
         </div>
 
         {/* DATA MANAGEMENT */}

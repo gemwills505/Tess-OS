@@ -69,11 +69,22 @@ export interface PersonalityTraits {
     humor_style: 'Dry' | 'Silly' | 'Deadpan' | 'Witty' | 'None';
 }
 
+export interface ContentPillar {
+    id: string;
+    title: string;
+    description: string;
+    format: 'CAROUSEL' | 'REEL' | 'STATIC' | 'STORY';
+    visualStyle: string; // e.g. "Notes App Screenshot" or "Candid 5-slide dump"
+    hookStyle: string; // e.g. "Unpopular Opinion" or "Day in the life"
+    example?: string;
+}
+
 export interface BrainStrategy {
     trojan_strategy: string;
     anti_influencer_angle: string;
     emotional_hooks: string[];
-    content_archetypes: string[];
+    content_archetypes: string[]; // Legacy
+    active_pillars: ContentPillar[]; // New Structured Pillars
     community_dynamics: string[];
     conversion_philosophy: string;
     viral_triggers: string[];
@@ -124,7 +135,7 @@ export interface BusinessInfo {
 }
 
 export interface AppSettings {
-    modelTier: 'fast' | 'smart';
+    modelTier: 'fast' | 'smart' | 'pro';
     imageEngine: 'nano-fast' | 'nano-pro' | 'seedream';
     elevenLabsKey?: string; // Added for Voice Changer
 }
@@ -356,7 +367,7 @@ export type TessPillar =
 
 export interface TessDayPlan {
   day: number;
-  pillar: TessPillar;
+  pillar: string; // Changed from fixed type to string to support custom pillars
   format: 'Reel (9-12s)' | 'Carousel' | 'Static' | 'Story';
   hook: string;
   caption: string;

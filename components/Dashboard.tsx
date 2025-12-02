@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateCaptionFromImage, generateSocialBios, generateSmartFill, generateGenAiImage, generateStoriesFromFeed, generateVeoVideo, generateVeoPrompt } from '../services/geminiService';
 import { getBrain, updateBrain, getFeed, saveFeed, getBank, saveBank, getHighlights, saveHighlights, getStory, saveStory, getStories, saveStories } from '../services/brain';
@@ -165,6 +166,7 @@ const FeedPlanner: React.FC = () => {
     saveFeed(newPosts);
   };
   
+  // ... (Remaining handlers like handleSaveStories, etc. are identical to previous) ...
   const handleSaveStories = (newStories: StoryItem[]) => {
       setStories(newStories);
       saveStories(newStories);
@@ -181,7 +183,6 @@ const FeedPlanner: React.FC = () => {
   };
 
   const handleDeleteHighlight = (id: string, e: React.MouseEvent) => {
-      // STOP propagation immediately so it doesn't trigger the image upload
       e.stopPropagation();
       e.nativeEvent.stopImmediatePropagation();
       e.preventDefault();
@@ -189,11 +190,9 @@ const FeedPlanner: React.FC = () => {
       const hl = highlights.find(h => h.id === id);
       
       if (hl && hl.coverUrl) {
-          // Instant delete (No popup) - Clear image first
           const updated = highlights.map(h => h.id === id ? { ...h, coverUrl: null } : h);
           handleSaveHighlights(updated);
       } else {
-          // Instant delete (No popup) - Remove the bubble
           const updated = highlights.filter(h => h.id !== id);
           handleSaveHighlights(updated);
       }
@@ -216,11 +215,7 @@ const FeedPlanner: React.FC = () => {
   const processAvatarFile = async (file: File) => {
       try {
           const resized = await resizeImage(file, 500);
-          
-          // 1. Update Local State immediately
           setProfileData(prev => ({ ...prev, avatar: resized }));
-          
-          // 2. Persist to Brain Immediately (Merge with CURRENT profileData to avoid reverting text)
           const updatedBrain = getBrain();
           const newSocials = [...updatedBrain.identity.socials];
           if (newSocials.length > 0) {
@@ -238,15 +233,14 @@ const FeedPlanner: React.FC = () => {
               ...updatedBrain,
               identity: {
                   ...updatedBrain.identity,
-                  name: profileData.name, // Use current state
-                  role: profileData.role, // Use current state
-                  bio: profileData.bio,   // Use current state
+                  name: profileData.name, 
+                  role: profileData.role, 
+                  bio: profileData.bio,   
                   avatar: resized,
                   socials: newSocials
               }
           };
           updateBrain(brainDataToSave);
-          
       } catch (err) {
           console.error("Failed to upload avatar", err);
           alert("Failed to process image.");
@@ -258,7 +252,7 @@ const FeedPlanner: React.FC = () => {
       if (file) {
           await processAvatarFile(file);
       }
-      e.target.value = ''; // Reset input to allow re-upload
+      e.target.value = ''; 
   };
 
   const handleSaveProfile = (silent: boolean = false) => {
@@ -282,7 +276,7 @@ const FeedPlanner: React.FC = () => {
               name: profileData.name,
               role: profileData.role,
               bio: profileData.bio,
-              avatar: profileData.avatar, // Ensure current avatar is saved
+              avatar: profileData.avatar, 
               socials: newSocials
           }
       };
@@ -292,19 +286,12 @@ const FeedPlanner: React.FC = () => {
   };
   
   const handleGenerateBios = async () => {
-      // 1. Start spinning
       setGeneratingBios(true);
-      
       try {
-          // 2. Send the CURRENT bio text to the AI
           const bios = await generateSocialBios(profileData.bio);
-          
           if (bios && bios.length > 0) {
-              // 3. AUTO-APPLY: Immediately set the first (best) result to the bio box
               const bestBio = bios[0].text;
               handleProfileChange('bio', bestBio);
-
-              // 4. Save the alternates in case they want to swap
               setGeneratedBios(bios);
               setShowBioStudio(true); 
           } else {
@@ -314,7 +301,6 @@ const FeedPlanner: React.FC = () => {
           console.error(e);
           alert("Failed to connect to the Brain.");
       } finally {
-          // 5. Stop spinning no matter what
           setGeneratingBios(false);
       }
   };
@@ -377,15 +363,26 @@ const FeedPlanner: React.FC = () => {
       setIsAutoFilling(true);
       setAutoFillProgress(10);
       try {
-          const filledPlans = await generateSmartFill(posts);
-          if (filledPlans.length === 0) {
-              alert("Feed is full or Tess couldn't find any gaps to fill!");
+          // Identify gaps
+          const emptyIndices = posts.map((p, idx) => (p.type === 'empty' || (!p.imageUrl && !p.videoUrl)) ? idx : -1).filter(idx => idx !== -1);
+          
+          if (emptyIndices.length === 0) {
+              alert("Your feed is full! Add some empty rows first.");
               setIsAutoFilling(false);
               return;
           }
+
+          // Generate Content Plans using ONLY existing context (prevents hallucinations based on nothing)
+          const filledPlans = await generateSmartFill(posts);
+          
+          if (filledPlans.length === 0) {
+              alert("Tess couldn't think of anything. Check API key or add some context to other posts.");
+              setIsAutoFilling(false);
+              return;
+          }
+          
           setAutoFillProgress(30);
           const newPosts = [...posts];
-          const emptyIndices = newPosts.map((p, idx) => (p.type === 'empty' || (!p.imageUrl && !p.videoUrl)) ? idx : -1).filter(idx => idx !== -1);
           
           let completedCount = 0;
           const totalJobs = Math.min(emptyIndices.length, filledPlans.length);
@@ -594,6 +591,7 @@ const FeedPlanner: React.FC = () => {
       finally { setIsRegeneratingImage(false); }
   };
 
+  // ... (Drag logic remains unchanged) ...
   const handleFeedDragStart = (e: React.DragEvent, index: number) => {
     setDraggedItemIndex(index);
     setDraggedBankId(null);
@@ -717,6 +715,7 @@ const FeedPlanner: React.FC = () => {
                     <div className="flex gap-4 items-center"><button id="save-profile-btn" onClick={() => handleSaveProfile(false)} className="text-gray-400 hover:text-brand-purple transition-colors">💾</button><button onClick={() => { setShowIgModal(true); }} className="text-gray-900 hover:text-pink-500 transition-colors">➕</button><span>☰</span></div>
               </div>
 
+            {/* ... (Modals omitted for brevity, they remain same) ... */}
             {showIgModal && (
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
                     <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-in transition-all duration-500 overflow-hidden">
@@ -731,6 +730,7 @@ const FeedPlanner: React.FC = () => {
             )}
 
             <div className="flex-1 overflow-y-auto bg-white scroll-smooth scrollbar-hide">
+                 {/* ... (Profile section omitted for brevity, remains same) ... */}
                  <div className="px-5 pt-2 pb-4">
                     <div className="flex items-center justify-between mb-4">
                         <div 
@@ -899,6 +899,7 @@ const FeedPlanner: React.FC = () => {
           </div>
       </div>
 
+      {/* RIGHT SIDEBAR (Edit Post) Remains Unchanged */}
       <div className="w-[450px] bg-white border-l border-gray-200 flex flex-col shadow-xl z-20 relative">
           {selectedPostId ? (
              <>
