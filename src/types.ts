@@ -89,7 +89,6 @@ export interface BrainStrategy {
     business_hook: string;
     skills: string[];
     experience: string[];
-    // Learning Arrays
     winning_patterns?: string[];
     avoid_patterns?: string[];
 }
@@ -137,9 +136,9 @@ export interface BusinessInfo {
 
 export interface AppSettings {
     modelTier: 'fast' | 'smart' | 'pro';
-    imageEngine: 'nano-fast' | 'nano-pro'; // REMOVED SEEDREAM
+    imageEngine: 'nano-fast' | 'nano-pro'; 
     elevenLabsKey?: string; 
-    zapierWebhook?: string; // ADDED ZAPIER
+    zapierWebhook?: string; 
 }
 
 export interface BrandContext {
@@ -217,6 +216,7 @@ export interface AvatarCandidate {
       mascot: string;
       villain: string;
   };
+  suggested_handles?: string[];
 }
 
 export interface FacebookProfile {
@@ -330,6 +330,8 @@ export interface FeedItem {
   hashtags: string[];
   type: 'video' | 'image';
   metadata?: any; 
+  notes?: string;
+  status?: 'draft' | 'scheduled' | 'posted';
 }
 
 export enum AgentTool {
@@ -337,6 +339,7 @@ export enum AgentTool {
   TRENDS = 'TOOL_TRENDS',
   VISION = 'TOOL_VISION',
   BRAIN_UPDATE = 'TOOL_BRAIN_UPDATE',
+  IMAGE_GEN = 'TOOL_IMAGE_GEN', 
   CHAT = 'TOOL_CHAT'
 }
 
@@ -349,6 +352,7 @@ export interface BrainUpdateProposal {
 
 export interface AgentMessage {
   role: 'user' | 'agent';
+  sender?: 'client' | 'admin' | 'tess';
   text: string;
   type: 'text' | 'plan' | 'trends' | 'vision' | 'brain_update';
   data?: any;
@@ -466,4 +470,14 @@ export interface VisionAnalysisResult {
     povText: string;
     veoPrompt: string;
     imagePrompt: string;
+}
+
+export type ContentScenario = 'LAUNCH' | 'NEWS' | 'PROMO' | 'VLOG_WEEK' | 'RELATABLE' | 'EDUCATION';
+
+export interface ClientBrief {
+    id: string;
+    clientId: string;
+    status: 'NEW' | 'DRAFTING' | 'REVIEW' | 'APPROVED';
+    chatLog: AgentMessage[];
+    timestamp: number;
 }

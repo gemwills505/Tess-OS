@@ -40,13 +40,12 @@ const BrainManager: React.FC = () => {
   const [brain, setBrain] = useState<BrainData | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [isGeneratingLocations, setIsGeneratingLocations] = useState(false);
-  const [dragActiveId, setDragActiveId] = useState<string | null>(null);
   const [previewLocImage, setPreviewLocImage] = useState<{url: string, name: string} | null>(null);
   
-  // Ref to prevent infinite loops
-  const isInternalUpdate = useRef(false);
   const isFirstRender = useRef(true);
+  const isInternalUpdate = useRef(false); // Flag to prevent infinite loops
 
+  // Initial Load
   useEffect(() => {
     const load = () => {
         // If WE just triggered the update, don't reload and cause a re-render loop
@@ -83,9 +82,6 @@ const BrainManager: React.FC = () => {
   }, [brain]);
 
   // --- HANDLERS ---
-  const handleDragOver = (e: React.DragEvent, id: string) => { e.preventDefault(); e.stopPropagation(); setDragActiveId(id); };
-  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragActiveId(null); };
-  
   const handleReset = () => { 
       if (confirm("Reset Brain to Defaults?")) { 
           const fresh = resetBrain();
@@ -118,7 +114,7 @@ const BrainManager: React.FC = () => {
   const isTessAdmin = getActiveClientId() === TESS_ID;
 
   return (
-    // FIX 1: Added h-full overflow-y-auto to fix scrolling issue
+    // FIX 1: Added h-full overflow-y-auto to enable scrolling
     <div className="h-full overflow-y-auto custom-scrollbar p-8 pb-32 animate-fade-in relative">
       <div className="max-w-6xl mx-auto">
           <header className="mb-8 flex items-center justify-between sticky top-0 z-30 bg-white/80 backdrop-blur-md py-4 px-6 rounded-2xl border border-white/50 shadow-sm">

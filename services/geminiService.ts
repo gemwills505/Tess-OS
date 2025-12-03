@@ -33,41 +33,23 @@ const retryOperation = async <T>(operation: () => Promise<T>, retries = 6, baseD
             return await operation();
         } catch (error: any) {
             lastError = error;
-            
-            // Deep inspection of error object to catch various Google SDK error formats
             const status = error.status || error.response?.status || error.error?.code;
             const message = (error.message || error.error?.message || JSON.stringify(error)).toLowerCase();
             const statusText = (error.statusText || error.error?.status || '').toLowerCase();
 
-            // Handle Overloaded (503), Rate Limit (429), Internal Error (500), or specific overload messages
             const isOverloaded = 
-                status === 503 || 
-                status === 429 || 
-                status === 500 || 
-                message.includes('overloaded') || 
-                message.includes('unavailable') ||
-                message.includes('resource exhausted') ||
-                statusText === 'unavailable';
+                status === 503 || status === 429 || status === 500 || 
+                message.includes('overloaded') || message.includes('unavailable') ||
+                message.includes('resource exhausted') || statusText === 'unavailable';
 
             if (isOverloaded) {
-                // Exponential backoff with jitter: 0.5s, 1s, 2s... (Fast recovery)
                 const delay = baseDelay * Math.pow(1.5, i) + (Math.random() * 200);
                 console.warn(`Gemini API Busy (Attempt ${i + 1}/${retries}). Retrying in ${Math.round(delay)}ms...`);
                 await wait(delay);
                 continue;
             }
-            
-            // If it's a 400 error (Bad Request), don't retry, just throw
-            if (status >= 400 && status < 500 && status !== 429) {
-                throw error;
-            }
-            
-            // For other unknown errors, we might retry once just in case
-            if (i < 1) {
-                 await wait(baseDelay);
-                 continue;
-            }
-            
+            if (status >= 400 && status < 500 && status !== 429) throw error;
+            if (i < 1) { await wait(baseDelay); continue; }
             throw error;
         }
     }
@@ -101,108 +83,102 @@ export const constructImageGenPrompt = (visualPrompt: string, engine: string, is
         `;
     }
 
-    if (engine === 'seedream') return cleanVisualPrompt; 
+    // --- NANO PRO / FLASH IMAGE ONLY ---
+    // Seedream support removed.
+    const safeBio = brain.identity?.bio || "A social media manager.";
+    
+    if (isEnvironment) {
+            // STRICT ENVIRONMENT RULES (FOR 360 GENERATOR COMPATIBILITY)
+            const shouldUse360Format = isExplicit360 || (known360Location && isEnvironment);
+            return `
+            ROLE: Interior Designer & Architectural Photographer.
+            TASK: Generate a single, stunning, photo-realistic image of a room.
+            STYLE: Authentic, Lived-in, Candid. NOT a showroom. NOT Ikea catalog. NOT perfect.
+            
+            BIO CONTEXT: "${safeBio}"
+            
+            CRITICAL VISUAL RULES: 
+            - **EMPTY ROOM. ABSOLUTELY NO PEOPLE. NO HUMANS. NO PETS. NO SELFIES.**
+            - **NO BODY PARTS (Hands, Legs, Feet, Reflections in mirrors).**
+            - **INVISIBLE CAMERA.**
+            - **LIVED-IN DETAILS:** Slight mess is good. A coffee cup on a table. A slightly wrinkled rug. Magazines not perfectly aligned. It must look like a REAL home, not a render.
+            - NO SCREENS FLOATING. STRAIGHT VERTICAL LINES. 
+            
+            NEGATIVE PROMPT: People, Person, Man, Woman, Child, Human, Silhouette, Ghost, Shadow of person, Showroom, Ikea Catalog, Perfect, 3D Render, Staged, Sterile, Selfie, Hands, Arms, Legs, Feet, Body parts, Reflection of person, Mirror selfie, Crowd, Text, Overlay, Watermark, Split screen, Collage.
+            
+            ${shouldUse360Format ? '- FORMAT: 360-degree equirectangular panorama projection.' : ''}
+            SCENE: ${cleanVisualPrompt}
+            `;
+    } else {
+            // DETECT SELFIE/VLOG INTENT
+            const isSelfieOrVlog = /selfie|vlog|talking to camera|speaking to camera|holding the camera|facing camera/i.test(visualPrompt);
+            
+            const selfieInstruction = isSelfieOrVlog 
+            ? "ACTION: Subject is holding the camera at arm's length (Selfie/Vlog angle). DO NOT show a physical camera device in their hands. They are looking into the lens." 
+            : "";
 
-    // --- NANO PRO / FLASH IMAGE ---
-    // Note: 'nano-pro' maps to Pro model, 'nano-fast' maps to Flash image model
-    if (engine === 'nano-pro' || engine === 'nano-fast') {
-        const safeBio = brain.identity?.bio || "A social media manager.";
-        
-        if (isEnvironment) {
-             // STRICT ENVIRONMENT RULES (FOR 360 GENERATOR COMPATIBILITY)
-             const shouldUse360Format = isExplicit360 || (known360Location && isEnvironment);
-             return `
-                ROLE: Interior Designer & Architectural Photographer.
-                TASK: Generate a single, stunning, photo-realistic image of a room.
-                STYLE: Authentic, Lived-in, Candid. NOT a showroom. NOT Ikea catalog. NOT perfect.
-                
-                BIO CONTEXT: "${safeBio}"
-                
-                CRITICAL VISUAL RULES: 
-                - **EMPTY ROOM. ABSOLUTELY NO PEOPLE. NO HUMANS. NO PETS. NO SELFIES.**
-                - **NO BODY PARTS (Hands, Legs, Feet, Reflections in mirrors).**
-                - **INVISIBLE CAMERA.**
-                - **LIVED-IN DETAILS:** Slight mess is good. A coffee cup on a table. A slightly wrinkled rug. Magazines not perfectly aligned. It must look like a REAL home, not a render.
-                - NO SCREENS FLOATING. STRAIGHT VERTICAL LINES. 
-                
-                NEGATIVE PROMPT: People, Person, Man, Woman, Child, Human, Silhouette, Ghost, Shadow of person, Showroom, Ikea Catalog, Perfect, 3D Render, Staged, Sterile, Selfie, Hands, Arms, Legs, Feet, Body parts, Reflection of person, Mirror selfie, Crowd, Text, Overlay, Watermark, Split screen, Collage.
-                
-                ${shouldUse360Format ? '- FORMAT: 360-degree equirectangular panorama projection.' : ''}
-                SCENE: ${cleanVisualPrompt}
-             `;
-        } else {
-             // DETECT SELFIE/VLOG INTENT
-             const isSelfieOrVlog = /selfie|vlog|talking to camera|speaking to camera|holding the camera|facing camera/i.test(visualPrompt);
-             
-             const selfieInstruction = isSelfieOrVlog 
-                ? "ACTION: Subject is holding the camera at arm's length (Selfie/Vlog angle). DO NOT show a physical camera device in their hands. They are looking into the lens." 
-                : "";
+            // SMART SUBJECT DEFINITION
+            const personaDefinition = brain.styleGuide?.persona_definition || "";
+            const hasSpecificPersona = personaDefinition.length > 10;
 
-             // SMART SUBJECT DEFINITION
-             // If we have a specific persona definition in the brain, use it.
-             const personaDefinition = brain.styleGuide?.persona_definition || "";
-             const hasSpecificPersona = personaDefinition.length > 10;
+            let subjectDescription = `
+            SUBJECT:
+            A real human. 20-40 years old. 
+            Style: Smart Casual / Real world aesthetic. Looks put together and well-groomed.
+            
+            DIVERSITY POLICY: 
+            Unless a specific reference image is provided, prioritize diversity in ethnicity and gender.
+            Avoid generic stock photo looks. Make them look unique.
+            `;
 
-             let subjectDescription = `
-                SUBJECT:
-                A real human. 20-40 years old. 
-                Style: Smart Casual / Real world aesthetic. Looks put together and well-groomed.
-                
-                DIVERSITY POLICY: 
-                Unless a specific reference image is provided, prioritize diversity in ethnicity and gender.
-                Avoid generic stock photo looks. Make them look unique.
-             `;
+            if (hasSpecificPersona) {
+                subjectDescription = `
+            SUBJECT DESCRIPTION (STRICT):
+            ${personaDefinition}
+            Name: ${brain.identity.name}
+            
+            INSTRUCTION: Adhere strictly to the physical description above (Hair Color, Hair Style, Ethnicity, Features).
+                `;
+            }
 
-             if (hasSpecificPersona) {
-                 subjectDescription = `
-                SUBJECT DESCRIPTION (STRICT):
-                ${personaDefinition}
-                Name: ${brain.identity.name}
-                
-                INSTRUCTION: Adhere strictly to the physical description above (Hair Color, Hair Style, Ethnicity, Features).
-                 `;
-             }
+            // ENFORCE FACE CONSISTENCY
+            const faceLockInstruction = hasReference 
+            ? `
+            CRITICAL FACE LOCK:
+            - You MUST generate the EXACT SAME PERSON as the reference image.
+            - Copy Facial Features, Bone Structure, Eye Color, and Hair Texture exactly.
+            - If the reference shows specific clothing, maintain that style unless specified otherwise.
+            ` 
+            : "";
 
-             // ENFORCE FACE CONSISTENCY
-             const faceLockInstruction = hasReference 
-                ? `
-                CRITICAL FACE LOCK:
-                - You MUST generate the EXACT SAME PERSON as the reference image.
-                - Copy Facial Features, Bone Structure, Eye Color, and Hair Texture exactly.
-                - If the reference shows specific clothing, maintain that style unless specified otherwise.
-                ` 
-                : "";
-
-             return `
-                ROLE: Candid Lifestyle Photographer.
-                TASK: Generate an authentic, real-life photo of a person.
-                STYLE: "Shot on iPhone", clean aesthetic, natural light, high quality.
-                
-                ${subjectDescription}
-                
-                ${faceLockInstruction}
-                
-                STRICT NEGATIVE PROMPTS (CRITICAL):
-                - **NO SPLIT SCREENS. NO COLLAGES. NO MONTAGES.**
-                - **NO TEXT OVERLAYS. NO WATERMARKS. NO WORDS.**
-                - NO STUDIO LIGHTING. NO EDITORIAL. NO FASHION SHOOT.
-                - NO SCI-FI. NO FLOATING SCREENS.
-                - NO PLASTIC SKIN. NO AIRBRUSHING.
-                - NO HOLDING A CAMERA. NO DSLR IN HANDS. NO CAMERA STRAPS.
-                
-                CRITICAL VISUAL DETAILS:
-                - LIGHTING: Soft, diffused natural window light.
-                - SKIN: Natural, healthy, clean skin texture.
-                - CAMERA: Smartphone focal length (28mm).
-                - COMPOSITION: SINGLE FULL FRAME IMAGE.
-                ${selfieInstruction}
-                
-                SCENE DESCRIPTION:
-                ${cleanVisualPrompt}
-             `;
-        }
+            return `
+            ROLE: Candid Lifestyle Photographer.
+            TASK: Generate an authentic, real-life photo of a person.
+            STYLE: "Shot on iPhone", clean aesthetic, natural light, high quality.
+            
+            ${subjectDescription}
+            
+            ${faceLockInstruction}
+            
+            STRICT NEGATIVE PROMPTS (CRITICAL):
+            - **NO SPLIT SCREENS. NO COLLAGES. NO MONTAGES.**
+            - **NO TEXT OVERLAYS. NO WATERMARKS. NO WORDS.**
+            - NO STUDIO LIGHTING. NO EDITORIAL. NO FASHION SHOOT.
+            - NO SCI-FI. NO FLOATING SCREENS.
+            - NO PLASTIC SKIN. NO AIRBRUSHING.
+            - NO HOLDING A CAMERA. NO DSLR IN HANDS. NO CAMERA STRAPS.
+            
+            CRITICAL VISUAL DETAILS:
+            - LIGHTING: Soft, diffused natural window light.
+            - SKIN: Natural, healthy, clean skin texture.
+            - CAMERA: Smartphone focal length (28mm).
+            - COMPOSITION: SINGLE FULL FRAME IMAGE.
+            ${selfieInstruction}
+            
+            SCENE DESCRIPTION:
+            ${cleanVisualPrompt}
+            `;
     }
-    return cleanVisualPrompt;
 };
 
 // --- IMAGE GENERATION (SMART FALLBACK) ---
@@ -218,8 +194,8 @@ export const generateGenAiImage = async (
     const brain = brainOverride || getBrain();
     const hasRef = !!referenceImage;
     
-    // Always get the latest engine setting
-    const engine = settings.imageEngine || 'nano-fast';
+    // Always get the latest engine setting, fallback to nano-fast if seedream remains
+    const engine = settings.imageEngine === 'nano-pro' ? 'nano-pro' : 'nano-fast';
     
     let finalPrompt = constructImageGenPrompt(visualPrompt, engine, isEnvironment, brain, hasRef);
     
@@ -230,7 +206,6 @@ export const generateGenAiImage = async (
     const parts: any[] = [];
     if (referenceImage) {
         try {
-            // Support both full data URL and just base64
             let mimeType = 'image/jpeg';
             let base64Data = referenceImage;
             
@@ -239,15 +214,10 @@ export const generateGenAiImage = async (
                 base64Data = referenceImage.split(',')[1];
             }
             parts.push({ inlineData: { data: base64Data, mimeType: mimeType } });
-        } catch (e) {
-            console.error("Failed to parse reference image", e);
-        }
+        } catch (e) { console.error("Failed to parse reference image", e); }
     }
     parts.push({ text: finalPrompt });
 
-    // MODEL STRATEGY: 
-    // 'nano-fast' -> 'gemini-2.5-flash-image'
-    // 'nano-pro' -> 'gemini-3-pro-image-preview'
     let modelName = 'gemini-2.5-flash-image'; 
     if (engine === 'nano-pro') {
         modelName = 'gemini-3-pro-image-preview';
@@ -268,15 +238,12 @@ export const generateGenAiImage = async (
             return null;
         } catch (error: any) { 
             const status = error.status || error.response?.status || error.error?.code;
-            
-            // SMART FALLBACK: If Pro is busy/404, switch to Flash IMMEDIATELY
             if ((status === 503 || status === 429 || status === 404 || status === 403) && modelName === 'gemini-3-pro-image-preview') {
                  console.warn("Pro Model Overloaded. Switching to Flash Image for speed.");
                  modelName = 'gemini-2.5-flash-image';
-                 await wait(500); // Short pause before retry
-                 continue; // Retry loop with new model
+                 await wait(500); 
+                 continue; 
             }
-
             console.error(`Image Gen Error (${modelName}):`, error);
             retries--;
             if (retries > 0) await wait(delay);
@@ -342,7 +309,7 @@ export const generateDeepPersona = async (candidate: AvatarCandidate, voiceMode:
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: getTextModel(), // DYNAMIC MODEL
+        model: getTextModel(), 
         contents: prompt,
         config: { responseMimeType: "application/json" }
     }));
@@ -354,7 +321,6 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
     const gallery: Array<{id: string, url: string, label: string}> = [];
     const referenceImage = candidate.img;
     
-    // Create a temporary brain state to pass the character's visual style to the image generator
     const tempBrain: any = {
         identity: {
             bio: `Style: ${deepPersona.visual_attributes.clothing_style}. Hair: ${deepPersona.visual_attributes.hair_style}. Features: ${deepPersona.visual_attributes.facial_features}.`,
@@ -366,7 +332,6 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
         locations: {} 
     };
     
-    // Extract visual descriptions from locations to use as backgrounds
     const homeVisual = Object.values(locations).find(l => l.name.toLowerCase().includes('home') || l.name.toLowerCase().includes('living'))?.visualData || "Cozy modern apartment, lived-in, slightly messy.";
     const workVisual = Object.values(locations).find(l => l.name.toLowerCase().includes('work') || l.name.toLowerCase().includes('office'))?.visualData || "Modern workspace, organized chaos.";
     
@@ -374,7 +339,6 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
         ? `working at ${businessInfo.name}. Wearing ${candidate.uniform}. Context: ${businessInfo.industry}.`
         : `working at their day job as a ${candidate.day_job}. Wearing professional attire for that role. NOT at the brand office.`;
 
-    // IMPORTANT: Inject physical description into EVERY prompt to ensure consistency
     const physicalDesc = `Subject: ${candidate.name}. ${deepPersona.visual_attributes.hair_style}. ${deepPersona.visual_attributes.facial_features}.`;
 
     const shots = [
@@ -404,10 +368,8 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
         }
     ];
 
-    // Parallel generation for speed (since we use Flash now, parallel is safer)
     await Promise.all(shots.map(async (shot) => {
         try {
-            // Pass tempBrain to ensure the image generator uses THIS character's details
             const img = await generateGenAiImage(shot.prompt, true, false, referenceImage, '3:4', tempBrain);
             if (img) {
                 gallery.push({
@@ -416,9 +378,7 @@ export const generatePersonaGallery = async (candidate: AvatarCandidate, busines
                     label: shot.label
                 });
             }
-        } catch (e) {
-            console.error(`Failed to generate gallery shot: ${shot.label}`, e);
-        }
+        } catch (e) { console.error(`Failed to generate gallery shot: ${shot.label}`, e); }
     }));
 
     return gallery;
@@ -463,7 +423,7 @@ export const generateStarterEnvironments = async (brain: BrainData, onProgress: 
 
     try {
         const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-            model: "gemini-2.5-flash", // FAST MODEL (Environments are fine with Flash)
+            model: "gemini-2.5-flash", 
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }));
@@ -471,12 +431,8 @@ export const generateStarterEnvironments = async (brain: BrainData, onProgress: 
         const locsMap: Record<string, LocationData> = {};
         
         await Promise.all(locsArray.map(async (l: any) => {
-             // Force "EMPTY ROOM" into the visual prompt for the image generator
              const visualPrompt = `MASTER SHOT: ${l.name}. ${l.visualData}. Style: Authentic, lived-in home/office. Not staged. High quality. EMPTY ROOM. NO PEOPLE. NO BODY PARTS.`;
-             
-             // CRITICAL FIX: Pass the 'brain' object explicitly and set isEnvironment=true
              const img = await generateGenAiImage(visualPrompt, false, true, null, '16:9', brain);
-             
              l.imageUrl = img;
              l.imageUrls = img ? [img] : [];
              locsMap[l.id] = l;
@@ -509,7 +465,7 @@ export const generateAgentChat = async (t: string, c: string, h: any[]): Promise
     if (!ai) return { text: "Offline.", sources: [] };
     try {
         const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-            model: getTextModel(), // DYNAMIC MODEL
+            model: getTextModel(), 
             contents: `Context: ${c}\nHistory: ${JSON.stringify(h)}\nUser: ${t}`,
         }));
         return { text: response.text || "I'm processing...", sources: [] };
@@ -540,7 +496,7 @@ export const generateSocialBios = async (currentBio: string): Promise<{style: st
     
     try {
         const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-            model: "gemini-2.5-flash", // Bio generation is fast task
+            model: "gemini-2.5-flash", 
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }));
@@ -555,7 +511,7 @@ export const generateTrendReport = async (q: string) => {
     if (!ai) return { text: "", grounding: [] };
     try {
         const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-            model: getTextModel(), // DYNAMIC MODEL (Reasoning helpful for trends)
+            model: getTextModel(), 
             contents: `Find current social media trends about: ${q}. Format: TREND_CARD: Title | Origin | Vibe | Strategy`,
             config: { tools: [{ googleSearch: {} }] }
         }));
@@ -570,7 +526,6 @@ export const generateSmartFill = async (currentPosts: any[]): Promise<any[]> => 
     const ai = getAiClient();
     if (!ai) return [];
     
-    // Create a context of existing posts
     const context = currentPosts.filter(p => p.caption).map(p => p.caption).join(" || ");
     const brain = getBrain();
     
@@ -594,7 +549,7 @@ export const generateSmartFill = async (currentPosts: any[]): Promise<any[]> => 
     
     try {
         const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-            model: getTextModel(), // DYNAMIC MODEL
+            model: getTextModel(),
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }));
@@ -613,7 +568,6 @@ export const generateTessWeek = async (brain: BrainData, focus: string, duration
     const ai = getAiClient();
     if (!ai) throw new Error("API Key missing");
 
-    // 1. MINI-SERIES INJECTION (Only for 14-Day Sprints)
     let miniSeriesInstruction = "";
     if (duration === 14) {
         miniSeriesInstruction = `
@@ -693,7 +647,7 @@ export const performInitialResearch = async (url: string): Promise<string> => {
     const researchPrompt = `Research this brand URL: ${url}. Find: Brand Name, Industry, What they sell, Target Audience, Tone of Voice, Key Offers. Look for visual style and aesthetics.`;
     
     const researchResponse = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: getTextModel(), // DYNAMIC MODEL
+        model: getTextModel(), 
         contents: researchPrompt,
         config: { tools: [{ googleSearch: {} }] }
     }));
@@ -705,7 +659,6 @@ export const generateOnboardingCandidates = async (researchData: string, archety
     if (!ai) throw new Error("API Key missing");
     const archetypeInstruction = archetype === 'employee' ? "ARCHETYPE: INTERNAL EMPLOYEE. 'The Insider'. Perspective: 'We'. STRICTLY NO FOUNDERS. This is a staff member (e.g. Social Manager, Stylist, Barista, Assistant)." : "ARCHETYPE: SUPER FAN / CREATOR. 'The Customer'. Perspective: 'I'. The goal is to share an authentic obsession with the product/service. STRICTLY NO EMPLOYEES. This is a customer.";
     
-    // BRAND-PERSONA ALIGNMENT LOGIC
     const brandAlignment = `
         ANALYZE THE INDUSTRY:
         - If Brand is Kids/Baby/Parenting -> Persona MUST be a Parent (Mom/Dad). Vibe: Tired, loving, chaotic but cozy. NO 'Gen Z' slang if targeting Moms.
@@ -779,11 +732,8 @@ export const generateOnboardingCandidates = async (researchData: string, archety
     const result = JSON.parse(jsonStr(synthesisResponse.text) || "{}");
     if (result.candidates) { 
         await Promise.all(result.candidates.map(async (c: any, index: number) => { 
-            // FIX: Generate unique IDs to prevent collisions when loading more candidates
             c.id = `candidate_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
-            
             const enhancedVisualPrompt = `${c.visualPrompt}. Wearing: ${c.uniform}.`; 
-            // Candidate cards use 3:4 portrait
             const img = await generateGenAiImage(enhancedVisualPrompt, true, false, null, '3:4'); 
             c.img = img; 
         })); 

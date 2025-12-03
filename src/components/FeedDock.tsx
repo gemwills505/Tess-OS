@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getFeed, saveFeed, getBank, saveBank, getBrain, updateBrain } from '../services/brain';
 import { FeedPost } from '../types';

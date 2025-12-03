@@ -697,7 +697,7 @@ const FeedPlanner: React.FC<FeedPlannerProps> = ({ userRole = 'admin' }) => {
       : posts;
 
   return (
-    <div className="h-screen bg-gray-100 flex overflow-hidden font-sans relative">
+    <div className="h-full bg-transparent flex overflow-hidden font-sans relative">
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
       <input type="file" ref={bankInputRef} className="hidden" accept="image/*" multiple onChange={handleBankUpload} />
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
@@ -1011,7 +1011,7 @@ const FeedPlanner: React.FC<FeedPlannerProps> = ({ userRole = 'admin' }) => {
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-100/50 scrollbar-hide">
                     <div className="grid grid-cols-3 gap-3 auto-rows-fr">
                         {bankItems.map((item) => (
-                            <div key={item.id} draggable={userRole === 'admin'} onDragStart={(e) => handleBankDragStart(e, item.id, item.imageUrl)} className={`aspect-square rounded-lg overflow-hidden bg-white shadow-sm relative group transition-all ${userRole === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-md' : ''}`}>
+                            <div key={item.id} draggable={userRole === 'admin'} onDragStart={(e) => handleBankDragStart(e, item.id, item.imageUrl)} className={`aspect-square rounded-lg overflow-hidden bg-white shadow-sm relative group border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing`}>
                                 <img src={item.imageUrl} className="w-full h-full object-cover" draggable={false} />
                                 {userRole === 'admin' && <button type="button" onClick={(e) => deleteFromBank(item.id, e)} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} className="absolute top-1 right-1 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-[100]">✕</button>}
                             </div>
